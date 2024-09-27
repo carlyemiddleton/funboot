@@ -1,0 +1,23 @@
+Package: phantem
+Title: What the Package Does (One Line, Title Case)
+Version: 1.0.0
+Authors@R:
+    c(person(given = "Carly",
+           family = "Middleton", 
+           role = c("aut", "cre"),
+           email="carlyemiddleton@gmail.com"),
+	  person(given = "Maiying",
+           family = "Kong", 
+           role = c("ths"),
+           email="maiying.kong@louisville.edu",
+           comment = c(ORCID = "0000-0002-7313-9084")),
+      person(given = "Qi",
+           family = "Zheng", 
+           role = c("ths"),
+           email="qi.zheng@louisville.edu")
+           )
+Description: What the package does (one paragraph).
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
