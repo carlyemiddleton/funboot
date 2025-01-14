@@ -24,3 +24,5 @@ char_summary <- function(x, na.rm=FALSE){
     Nunique = Nunique )
 
 }
+
+#this is a test comment.  did it appear when I did commit push?
