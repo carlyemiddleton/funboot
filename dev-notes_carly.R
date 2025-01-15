@@ -34,12 +34,12 @@ data <- data.frame(breast.sce$patient_id, breast.sce$image_number, breast.sce$ce
                    breast.sce$patient_age, breast.sce$tumor_grade)
 names(data) <- c('patient_id','image_number','cell_id','cell_x','cell_y','cell_metacluster',
                  'patient_age','tumor_grade')
-data_example <- data[data$patient_id %in% c(1:42),]
+data_example <- data[data$patient_id %in% c(1:42),] #trim down to just the first 10 images
 ##remove patients with unknown clinical subtype
 #data <- data[data$tumor_clinical_type %in% c('HR-HER2+','HR+HER2-','HR+HER2+','TripleNeg'),]
-save(data_example, file='data_example.RData')
+#save(data_example, file='data_example.RData')
 
-
+usethis::use_data(data_example)
 
 
 
