@@ -40,6 +40,6 @@ data_example <- data[data$patient_id %in% c(1:42),] #trim down to just the first
 #save(data_example, file='data_example.RData')
 
 usethis::use_data(data_example)
-
+usethis::use_r("data") #create a data.R file in the R subdirectory
 
 
