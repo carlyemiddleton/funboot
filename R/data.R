@@ -12,6 +12,6 @@
 #'   \item{cell_metacluster}{letter, from A to E}
 #'   \item{patient_age}{letter, from A to E}
 #'   \item{tumor_grade}{letter, from A to E}
-#'   ...
 #' }
+#' @source \url{https://bodenmillergroup.github.io/imcdatasets/reference/JacksonFischer_2020_BreastCancer.html}
 "data_example"
