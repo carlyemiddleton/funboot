@@ -17,9 +17,9 @@ devtools::check()
 use_git() #adds Git support
 use_github()
 
-#################################################################
-##make tiny sample of the jackson fischer data for dev purposes #
-#################################################################
+######################################################################
+##make tiny sample of the jackson fischer data for tutorial purposes #
+######################################################################
 
 #if (!require("BiocManager", quietly = TRUE))
 #  install.packages("BiocManager")
@@ -43,4 +43,25 @@ usethis::use_data(data_example)
 usethis::use_r("data") #create a data.R file in the R subdirectory
 #write the data.R file description
 devtools::document()
+
+###################################
+##make preprocess_data() function #
+###################################
+
+data("data_example")
+
+res <- preprocess_data(data=data, from.cell=7, to.cell=3, qc.cellcount.cutoff=20, P=50, perm.yn=T,
+                       R=500, inc=1, image.dims=c(0,1000,0,1000), summary.function='L')
+
+
+
+
+
+
+
+
+
+
+
+
 
