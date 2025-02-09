@@ -4,6 +4,20 @@
 #   3.) calculating either the expected or the permuted spatial summary function
 #   4.) compiling the outcome variable and covariates into one dataset (model.data)
 
+#' @title Preprocesses data
+#'
+#' @param data is
+#' @param from.cell is
+#' @param to.cell is
+#' @param qc.cellcount.cutoff is
+#' @param P is
+#' @param perm.yn is
+#' @param R is
+#' @param inc is
+#' @param image.dims is
+#' @param summary.function is
+#' @return It returns model.data
+#'
 #' @export
 
 preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=50, perm.yn=F,
