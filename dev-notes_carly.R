@@ -42,7 +42,7 @@ data_example <- data[data$patient_id %in% c(1:42),] #trim down to just the first
 usethis::use_data(data_example)
 usethis::use_r("data") #create a data.R file in the R subdirectory
 #write the data.R file description
-devtools::document()
+devtools::document() #do this to export your functions
 
 ###################################
 ##make preprocess_data() function #
@@ -50,10 +50,11 @@ devtools::document()
 
 data("data_example")
 
-res <- preprocess_data(data=data, from.cell=7, to.cell=3, qc.cellcount.cutoff=20, P=50, perm.yn=T,
-                       R=500, inc=1, image.dims=c(0,1000,0,1000), summary.function='L')
+sumfun.data <- preprocess_data(data=data_example, from.cell=7, to.cell=3, qc.cellcount.cutoff=20, P=50, perm.yn=T,
+                       R=200, inc=1, image.dims=c(0,1000,0,1000), summary.function='L')
 
-
+pffrmodel <- fit_model(formula=outcome ~ patient_age + tumor_grade + L.obs,
+                      data=sumfun.data, spatial.covars = c('L.obs'))
 
 
 

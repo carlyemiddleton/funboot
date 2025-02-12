@@ -14,7 +14,8 @@ preprocess_data(
   R = 200,
   inc = 1,
   image.dims,
-  summary.function = "L"
+  summary.function = "L",
+  seed = 456
 )
 }
 \arguments{
@@ -37,9 +38,11 @@ preprocess_data(
 \item{image.dims}{is}
 
 \item{summary.function}{is}
+
+\item{seed}{only makes a difference if perm.yn is switched on}
 }
 \value{
-It returns model.data
+It returns sumfun.data
 }
 \description{
 Preprocesses data
