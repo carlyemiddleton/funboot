@@ -2,7 +2,7 @@
 #   1.) filtering out sparse images using qc.cellcount.cutoff
 #   2.) calculating the observed spatial summary function to be modeled
 #   3.) calculating either the expected or the permuted spatial summary function
-#   4.) compiling the outcome variable and covariates into one dataset (model.data)
+#   4.) compiling the outcome variable and covariates into one dataset (sumfun.data)
 
 #' @title Preprocesses data
 #'
@@ -16,21 +16,22 @@
 #' @param inc is
 #' @param image.dims is
 #' @param summary.function is
-#' @return It returns model.data
+#' @param seed only makes a difference if perm.yn is switched on
+#' @return It returns sumfun.data
 #'
 #' @export
 
 preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=50, perm.yn=F,
-                            R=200, inc=1, image.dims, summary.function='L'){
-
+                            R=200, inc=1, image.dims, summary.function='L', seed=456){
+  set.seed(seed)
   image.xmax <- image.dims[2]
   image.ymax <- image.dims[4]
   image.xmin <- image.dims[1]
   image.ymin <- image.dims[3]
-  W <- owin(c(image.xmin,image.xmax), c(image.ymin,image.ymax))
+  W <- spatstat.geom::owin(c(image.xmin,image.xmax), c(image.ymin,image.ymax))
 
   #########################
-  ##Calculate model.data ##
+  ##Calculate sumfun.data ##
   #########################
 
   if(!(summary.function %in% c('K', 'L', 'g'))){stop("summary.function must be one of 'K', 'L', or g")}
@@ -89,34 +90,34 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
   }
   #Calculate the outcome variable
   if(summary.function=='L'){
-    model.data <- Ldata
-    if(perm.yn==T){model.data$L.pmean <- L.pmean.vec;
-                   model.data$outcome <- model.data$L.obs - model.data$L.pmean
+    sumfun.data <- Ldata
+    if(perm.yn==T){sumfun.data$L.pmean <- L.pmean.vec;
+                   sumfun.data$outcome <- sumfun.data$L.obs - sumfun.data$L.pmean
                   }else{
-                   model.data$L.pmean <- NA;
-                   model.data$outcome <- model.data$L.obs - model.data$L.expect}
-    names(model.data) <- c('r','L.expect','L.obs','image_number','L.pmean','outcome')
+                   sumfun.data$L.pmean <- NA;
+                   sumfun.data$outcome <- sumfun.data$L.obs - sumfun.data$L.expect}
+    names(sumfun.data) <- c('r','L.expect','L.obs','image_number','L.pmean','outcome')
   }else if(summary.function=='g'){
-    model.data <- gdata
-    if(perm.yn==T){model.data$g.pmean <- g.pmean.vec;
-                   model.data$outcome <- model.data$g.obs - model.data$g.pmean
+    sumfun.data <- gdata
+    if(perm.yn==T){sumfun.data$g.pmean <- g.pmean.vec;
+                   sumfun.data$outcome <- sumfun.data$g.obs - sumfun.data$g.pmean
                   }else{
-                   model.data$g.pmean <- NA;
-                   model.data$outcome <- model.data$g.obs - model.data$g.expect}
-    names(model.data) <- c('r','g.expect','g.obs','image_number','g.pmean','outcome')
+                   sumfun.data$g.pmean <- NA;
+                   sumfun.data$outcome <- sumfun.data$g.obs - sumfun.data$g.expect}
+    names(sumfun.data) <- c('r','g.expect','g.obs','image_number','g.pmean','outcome')
   }else{
-    model.data <- Kdata
-    if(perm.yn==T){model.data$K.pmean <- K.pmean.vec;
-                   model.data$outcome <- model.data$K.obs - model.data$K.pmean
+    sumfun.data <- Kdata
+    if(perm.yn==T){sumfun.data$K.pmean <- K.pmean.vec;
+                   sumfun.data$outcome <- sumfun.data$K.obs - sumfun.data$K.pmean
                   }else{
-                   model.data$K.pmean <- NA;
-                   model.data$outcome <- model.data$K.obs - model.data$K.expect}
-    names(model.data) <- c('r','K.expect','K.obs','image_number','K.pmean','outcome')
+                   sumfun.data$K.pmean <- NA;
+                   sumfun.data$outcome <- sumfun.data$K.obs - sumfun.data$K.expect}
+    names(sumfun.data) <- c('r','K.expect','K.obs','image_number','K.pmean','outcome')
   }
   covariate.df <- data
   covariate.df$cell_id <- covariate.df$cell_x <- covariate.df$cell_y <- covariate.df$cell_metacluster <- NULL
   covariate.df <- unique(covariate.df)
-  model.data <- merge(model.data, covariate.df, by='image_number'
+  sumfun.data <- merge(sumfun.data, covariate.df, by='image_number'
                       , all=F) #all=F:  if an image doesn't meet the qc.cutoff, don't include its covariates
-  return(model.data)
+  return(sumfun.data)
 }

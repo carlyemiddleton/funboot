@@ -57,7 +57,7 @@ res <- preprocess_data(data=data, from.cell=7, to.cell=3, qc.cellcount.cutoff=20
 
 
 
-
+detach("package:phantem", unload = TRUE)
 
 
 
