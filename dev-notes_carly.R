@@ -47,19 +47,28 @@ devtools::document() #do this to export your functions
 ###################################
 ##make preprocess_data() function #
 ###################################
+library(spatstat.data)
+library(spatstat.univar)
+library(spatstat.geom)
+library(spatstat.random)
+library(spatstat.explore)
+library(refund)
+
+detach("package:phantem", unload = TRUE)
+library(devtools)
+devtools::install_github('carlyemiddleton/phantem')
+library(phantem)
 
 data("data_example")
 
 sumfun.data <- preprocess_data(data=data_example, from.cell=7, to.cell=3, qc.cellcount.cutoff=20, P=50, perm.yn=T,
                        R=200, inc=1, image.dims=c(0,1000,0,1000), summary.function='L')
 
-pffrmodel <- fit_model(formula=outcome ~ patient_age + tumor_grade + L.obs,
+sumfun.data$tumor_grade <- ifelse(sumfun.data$tumor_grade=='1', 1, 0)
+
+pffrmodel <- fit_model(formula=outcome ~ patient_age + tumor_grade + L.obs + s(image_number, bs="re"),
                       data=sumfun.data, spatial.covars = c('L.obs'))
-
-
-
-detach("package:phantem", unload = TRUE)
-
+summary(pffrmodel)
 
 
 

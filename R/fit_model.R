@@ -31,24 +31,32 @@ format.spatial.variable <- function(data, spatial.variable, grid, id){
 
 fit_model <- function(formula, data, spatial.covars = NULL){
 
-  #format outcome function
   n <- length(unique(data$patient_id))
   grid <- sort(unique(data$r))
-  outcome <- format.spatial.variable(data=data, spatial.variable = 'outcome', grid=grid, id='image_number')
-  #format spatial covariates
-  #Note:  make an error message checking if spatial.covars match the formula, which matches the dataset)
-  if(!is.null(spatial.covars)){
-    for(i in 1:length(spatial.covars)){
-      assign(paste0(spatial.covars[i]),
-            format.spatial.variable(data=data, spatial.variable = spatial.covars[i], grid=grid, id='image_number') )
-    }
-  }
+
   #format image-level covariates
   image.level.covars <- unique(data.frame(data['image_number'], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
+  pffr.data <- image.level.covars
 
+  #format outcome function
+  outcome <- format.spatial.variable(data=data, spatial.variable = 'outcome', grid=grid, id='image_number')
+  pffr.data$outcome <- outcome
 
+  #format spatial covariates
+  message('check spatial.covars argument')
+  if(!is.null(spatial.covars)){
+    for(i in 1:length(spatial.covars)){
+      #assign(paste0(spatial.covars[i]),
+      #       format.spatial.variable(data=data, spatial.variable = spatial.covars[i], grid=grid, id='image_number') )
+      pffr.data$temp <- format.spatial.variable(data=data, spatial.variable = spatial.covars[i], grid=grid, id='image_number')
+      names(pffr.data)[names(pffr.data) == 'temp'] <- paste0(spatial.covars[i])
+    }
+  }
+
+  pffr.data <- as.data.frame(pffr.data)
+  #return(pffr.data)
   #Fit the functional regression model
-  pffrmodel <- refund::pffr(formula, data=image.level.covars, yind=grid)
+  pffrmodel <- refund:::pffr(formula=formula, data=pffr.data, yind=grid)
   return(pffrmodel)
 
 }
