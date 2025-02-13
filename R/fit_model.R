@@ -68,15 +68,6 @@ fit_model <- function(formula, data, spatial.covars = NULL){
 
 
 
-  #put in the documentation:  this package uses one constant and one functional intercept, and does not allow suppression of either
-  # beta0_constant <- rep(summary(pffrmodel)$p.coeff, length(grid))
-  # beta0_hat <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$value
-  # for(i in 1:length(formula)){
-  #   list <- coef(pffrmodel,n1=length(grid))$smterms[
-  #     which(gsub('.{6}$', '', names(coef(pffrmodel,n1=length(grid))$smterms))==all.vars(formula)[i+1])]
-  #   assign(paste0('beta_hat_',all.vars(formula)[i+1]),
-  #          list[[1]]$coef$value)
-  # }
 
 
 
