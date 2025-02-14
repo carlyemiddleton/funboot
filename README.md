@@ -13,6 +13,7 @@ library(spatstat.geom)
 library(spatstat.random)
 library(spatstat.explore)
 library(refund)
+library(dplyr)
 ```
 
 For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above have interfered with with the pffr() function.
