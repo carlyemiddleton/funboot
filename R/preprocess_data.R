@@ -21,8 +21,9 @@
 #'
 #' @export
 
-preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=50, perm.yn=F,
-                            R=200, inc=1, image.dims, summary.function='L', seed=456){
+preprocess_data <- function(data=melanoma_data_subset, from.cell="Macrophage", to.cell="CD8- T cell",
+                            qc.cellcount.cutoff=20, P=50, perm.yn=T, cell.label = 'cell_type', image.id='image_number',
+                            cell.xcoord = 'cell_x', cell.ycoord = 'cell_y', R=200, inc=1, image.dims=c(0,1200,0,1200), summary.function='g',seed=456){
   set.seed(seed)
   image.xmax <- image.dims[2]
   image.ymax <- image.dims[4]
@@ -39,18 +40,18 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
   Kdata <- K.pmean.vec <- NULL
   if(summary.function=='L'){Ldata<- L.pmean.vec <- NULL}
   if(summary.function=='g'){gdata<- g.pmean.vec <- NULL}
-  for(i in unique(data$image_number)){
-    if(sum(data$image_number == i & data$cell_metacluster == from.cell)>qc.cellcount.cutoff & #quality control criteria
-       sum(data$image_number == i & data$cell_metacluster == to.cell)>qc.cellcount.cutoff){
-      qc.data <- data[data$image_number == i,]
+  for(i in unique(data[[paste0(image.id)]])){
+    if(sum(data[[paste0(image.id)]] == i & data[[paste0(cell.label)]] == from.cell)>qc.cellcount.cutoff & #quality control criteria
+       sum(data[[paste0(image.id)]] == i & data[[paste0(cell.label)]] == to.cell)>qc.cellcount.cutoff){
+      qc.data <- data[data[[paste0(image.id)]] == i,]
       if(perm.yn==T){
         permuted.K <- NULL
         if(summary.function=='L'){permuted.L <- NULL}
         if(summary.function=='g'){permuted.g <- NULL}
         for(p in 1:P){
-          ppp <- ppp(x = qc.data$cell_x, y = qc.data$cell_y,
-                     marks = factor(sample(qc.data$cell_metacluster,
-                                           size=length(qc.data$cell_metacluster), replace = F)), window = W)
+          ppp <- ppp(x = qc.data[[paste0(cell.xcoord)]], y = qc.data[[paste0(cell.ycoord)]],
+                     marks = factor(sample(qc.data[[paste0(cell.label)]],
+                                           size=length(qc.data[[paste0(cell.label)]]), replace = F)), window = W)
           Kdata.temp <- data.frame(Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ), image=i)
           permuted.K <- cbind(permuted.K, Kdata.temp$iso)
           if(summary.function=='L'){permuted.L <- sqrt(permuted.K/pi)}
@@ -69,8 +70,8 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
         }
         print(paste0('permuted outcome for image ',i,' calculated'))
       }
-      ppp <- ppp(x = qc.data$cell_x, y = qc.data$cell_y,
-                 marks = factor(qc.data$cell_metacluster), window = W)
+      ppp <- ppp(x = qc.data[[paste0(cell.xcoord)]], y = qc.data[[paste0(cell.ycoord)]],
+                 marks = factor(qc.data[[paste0(cell.label)]]), window = W)
       Kdata.temp <- data.frame(Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ), image=i)
       names(Kdata.temp) <- c('r','K.expect','K.obs','image_number')
       Kdata <- rbind(Kdata, Kdata.temp)
@@ -115,7 +116,7 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
     names(sumfun.data) <- c('r','K.expect','K.obs','image_number','K.pmean','outcome')
   }
   covariate.df <- data
-  covariate.df$cell_id <- covariate.df$cell_x <- covariate.df$cell_y <- covariate.df$cell_metacluster <- NULL
+  covariate.df$cell_id <- covariate.df[[paste0(cell.xcoord)]] <- covariate.df[[paste0(cell.ycoord)]] <- covariate.df[[paste0(cell.label)]] <- NULL
   covariate.df <- unique(covariate.df)
   sumfun.data <- merge(sumfun.data, covariate.df, by='image_number'
                       , all=F) #all=F:  if an image doesn't meet the qc.cutoff, don't include its covariates
