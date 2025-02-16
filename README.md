@@ -13,6 +13,7 @@ library(spatstat.geom)
 library(spatstat.random)
 library(spatstat.explore)
 library(refund)
+library(dplyr)
 ```
 
 For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above have interfered with with the pffr() function.
@@ -25,3 +26,12 @@ devtools::install_github('carlyemiddleton/phantem')
 library(phantem)
 data(data_example)
 ```
+
+Vignette things to cover:  
+1. preprocess_data(), and demonstration of the permuted outcome being corrected
+2. make a spaghetti plot function for the summary functions?
+3. make a plot.images() function for color coded cell image plots?
+4. fit_model()
+5. multiplicity adjustment
+6. wildBS_CB() and plot.wildBS_CB()
+7. Ftest() 
