@@ -26,3 +26,11 @@ devtools::install_github('carlyemiddleton/phantem')
 library(phantem)
 data(data_example)
 ```
+
+Vignette things to cover:  
+1. preprocess_data(), and demonstration of the permuted outcome being corrected
+2. make a spaghetti plot function for the summary functions?
+3. fit_model()
+4. multiplicity adjustment
+5. wildBS_CB() and plot.wildBS_CB()
+6. Ftest() 
