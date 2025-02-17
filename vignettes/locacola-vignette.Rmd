@@ -1,0 +1,105 @@
+---
+title: "Analyzing multiplex imaging data using functional regression"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{locacola-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+**Carly Middleton**
+
+In this tutorial, we demonstrate the utilities of our package, Loca-Cola, for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to two small subsets of 
+
+```{r setup}
+library(spatstat.data)
+library(spatstat.univar)
+library(spatstat.geom)
+library(spatstat.random)
+library(spatstat.explore)
+library(refund)
+library(dplyr)
+library(phantem)
+```
+
+##Jackson Fischer Breast Cancer Data
+
+First, we will analyze the Jackson Fischer breast cancer dataset.
+
+```{r }
+data("breastcancer_data_subset")
+
+```
+
+##Melanoma Data
+
+Next, we will analyze a melanoma dataset that contains multiple images per patient.
+
+```{r }
+data("breastcancer_data_subset")
+
+sumfun.data <- preprocess_data(data=melanoma_data_subset, from.cell="Macrophage", to.cell="CD8- T cell",
+                      qc.cellcount.cutoff=20, P=50, perm.yn=T, cell.label = 'cell_type', image.id='image_number',
+                       R=200, inc=1, image.dims=c(0,1200,0,1200), summary.function='g',seed=456)
+
+sumfun.data$patient_id <- factor(sumfun.data$patient_id)
+sumfun.data$patient_gender <- ifelse(sumfun.data$patient_gender=='f', 1, 0)
+sumfun.data$patient_age <- ifelse(sumfun.data$patient_age=='<45', 0, 1)
+
+
+```
+
+Fit the model, specifying a random intercept for the patient:
+
+```{r }
+formula <- outcome ~ g.obs + patient_gender + patient_age + s(patient_id, bs='re')
+
+pffrmodel <- fit_model(formula=formula,
+                      data=sumfun.data, spatial.covars = c('g.obs'),
+                      patient.id='patient_id')
+summary(pffrmodel)
+
+```
+
+Calculate and plot wild bootstrap confidence bands for each model coefficient:
+
+```{r }
+##Calculate CBs
+CBs <- wildBS_CB(formula=formula, image.id='image_number',patient.id='patient_id',
+                   data=sumfun.data, spatial.covars = c('g.obs'), re=c('patient_id'),
+                   B=10,alpha=.05,seed=456)
+#Plot CBs
+plot.wildBS_CB(CBs)
+
+```
+
+Test for the joint significance of three points simultaneously, applying Bonferroni:
+
+```{r }
+##Adjust pointwise CIs for multiplicity
+p.adjusted <- pointwise_test(data=sumfun.data, formula = formula, r.star = c(75,100,125), re=c('patient_id'),
+                             patient.id=c('patient_id'),alpha=.05,image.id=c('image_number'),
+                             spatial.covars = c('g.obs'),method = c('bonferroni'))
+p.adjusted
+
+```
+
+Run the wild bootstrap F test to jointly test patient_age and g.obs:
+
+```{r }
+formula.full <- outcome ~ patient_gender + patient_age + g.obs + s(patient_id, bs='re')
+formula.red <- outcome ~ patient_gender + s(patient_id, bs='re')
+
+F.p.value <- Ftest(formula.full, formula.red,image.id='image_number',patient.id='patient_id',
+                  data=sumfun.data, spatial.covars = c('g.obs'),
+                  B=50,alpha=.05,re=c('patient_id'),seed=456)
+F.p.value
+
+```

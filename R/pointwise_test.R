@@ -42,36 +42,37 @@ pointwise_test <- function(data=sumfun.data, formula = formula, r.star = 100, re
   beta_hat <- data.frame(beta0_hat_constant = beta0_hat_constant,
                          beta0_hat = beta0_hat)
   if(length(attr(terms(formula), "term.labels")) != 0){
-    for(i in 1:length(attr(terms(formula), "term.labels"))){
+    for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
       invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
-        #which(names(coef(pffrmodel,n1=length(grid))$smterms) %in% attr(terms(formula), "term.labels")[i])]
-        which(sapply(names(coef(pffrmodel,n1=length(grid))$smterms), function(x){grepl(paste0(all.vars(formula)[i+1]), x)}) )]))
-      assign(paste0('beta_hat_',all.vars(formula)[i+1]),
+        which(names(coef(pffrmodel,n1=length(grid))$smterms) == i )]))
+      assign(paste0('beta_hat_',i),
              list[[1]]$coef$value)
     }
     beta_hat <- cbind(beta_hat, bind_cols(mget(paste0('beta_hat_',
-                                                      all.vars(formula)[!all.vars(formula) %in% re][-1]  ))))
+                names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) &
+                                                               !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
   }
   #SEs
   beta0_hat_constant.se <- rep(summary(pffrmodel)$p.table[2], length(grid))
   invisible(capture.output(beta0_hat.se <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$se))
   beta_hat.se <- data.frame(beta0_hat_constant = beta0_hat_constant.se,
-                            beta0_hat = beta0_hat.se)
+                         beta0_hat = beta0_hat.se)
   if(length(attr(terms(formula), "term.labels")) != 0){
-    for(i in 1:length(attr(terms(formula), "term.labels"))){
+    for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
       invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
-        which(sapply(names(coef(pffrmodel,n1=length(grid))$smterms), function(x){grepl(paste0(all.vars(formula)[i+1]), x)}) )]))
-      assign(paste0('beta_hat_',all.vars(formula)[i+1]),
+        which(names(coef(pffrmodel,n1=length(grid))$smterms) == i )]))
+      assign(paste0('beta_hat_',i),
              list[[1]]$coef$se)
     }
     beta_hat.se <- cbind(beta_hat.se, bind_cols(mget(paste0('beta_hat_',
-                                                            all.vars(formula)[!all.vars(formula) %in% re][-1]  ))))
+                                                      names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) &
+                                                                                                       !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
   }
   #Adjusted p values
   Ests <- beta_hat[grid %in% r.star,]
   SEs <- beta_hat.se[grid %in% r.star,]
   Zs <- Ests/SEs
-  p.unadjusted <- sapply(Zs, function(x){pnorm(x, alpha/2, lower.tail=T)})
+  p.unadjusted <- sapply(abs(Zs), function(x){pnorm(x, alpha/2, lower.tail=F)})
   if(length(r.star)>1){ p.adjusted <- apply(p.unadjusted, 2, p.adjust, method=paste0(method))}
   if(length(r.star)==1){ p.adjusted <- p.unadjusted}
   p.adjusted <- cbind(r.star, p.adjusted)

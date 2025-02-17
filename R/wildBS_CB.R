@@ -44,15 +44,15 @@ wildBS_CB <- function(formula, data, image.id='image_number',patient.id='patient
   beta_hat <- data.frame(beta0_hat_constant = beta0_hat_constant,
                          beta0_hat = beta0_hat)
   if(length(attr(terms(formula), "term.labels")) != 0){
-  for(i in 1:length(attr(terms(formula), "term.labels"))){
-    invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
-         #which(names(coef(pffrmodel,n1=length(grid))$smterms) %in% attr(terms(formula), "term.labels")[i])]
-        which(sapply(names(coef(pffrmodel,n1=length(grid))$smterms), function(x){grepl(paste0(all.vars(formula)[i+1]), x)}) )]))
-       assign(paste0('beta_hat_',all.vars(formula)[i+1]),
-              list[[1]]$coef$value)
+    for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
+      invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
+        which(names(coef(pffrmodel,n1=length(grid))$smterms) == i )]))
+      assign(paste0('beta_hat_',i),
+             list[[1]]$coef$value)
     }
     beta_hat <- cbind(beta_hat, bind_cols(mget(paste0('beta_hat_',
-                                                      all.vars(formula)[!all.vars(formula) %in% re][-1]  ))))
+                                                      names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) &
+                                                                                                       !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
   }
   e <- function(i){outcome[i,] - predict(pffrmodel)[i,]}
   ##Step B2.1
@@ -63,7 +63,7 @@ wildBS_CB <- function(formula, data, image.id='image_number',patient.id='patient
     }
   }
   ##Step B2.2
-  M <- matrix(NA, ncol=c(length(all.vars(formula)[!all.vars(formula) %in% re][-1])+2), nrow=B)
+  M <- matrix(NA, ncol=c(sum(!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)))+1), nrow=B)
   for(b in 1:B){
     Y.bs <- matrix(NA, nrow=n.Im, ncol=length(grid))
     for(i in 1:n.Im){
@@ -82,31 +82,33 @@ wildBS_CB <- function(formula, data, image.id='image_number',patient.id='patient
     beta0_hat_constant.bs <- rep(summary(model.bs)$p.coeff, length(grid))
     invisible(capture.output(beta0_hat.bs <- coef(model.bs,n1=length(grid))$smterms$`Intercept(grid)`$coef$value))
     beta_hat.bs <- data.frame(beta0_hat_constant = beta0_hat_constant.bs,
-                              beta0_hat = beta0_hat.bs)
+                           beta0_hat = beta0_hat.bs)
     if(length(attr(terms(formula), "term.labels")) != 0){
-      for(i in 1:length(attr(terms(formula), "term.labels"))){
+      for(i in names(coef(model.bs,n1=length(grid))$smterms[-1])){
         invisible(capture.output(list <- coef(model.bs,n1=length(grid))$smterms[
-          which(sapply(names(coef(model.bs,n1=length(grid))$smterms), function(x){grepl(paste0(all.vars(formula)[i+1]), x)}) )]))
-        assign(paste0('beta_hat_',all.vars(formula)[i+1]),
+          which(names(coef(model.bs,n1=length(grid))$smterms) == i )]))
+        assign(paste0('beta_hat_',i),
                list[[1]]$coef$value)
       }
       beta_hat.bs <- cbind(beta_hat.bs, bind_cols(mget(paste0('beta_hat_',
-                              all.vars(formula)[!all.vars(formula) %in% re][-1]  ))))
+                                                        names(coef(model.bs,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) &
+                                                                                                         !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
     }
     #retrieve the SEs from the pffr() output
     beta0_hat_constant.se.bs <- rep(summary(model.bs)$p.table[2], length(grid))
     invisible(capture.output(beta0_hat.se.bs <- coef(model.bs,n1=length(grid))$smterms$`Intercept(grid)`$coef$se))
     beta_hat.se.bs <- data.frame(beta0_hat_constant = beta0_hat_constant.se.bs,
-                                 beta0_hat = beta0_hat.se.bs)
+                              beta0_hat = beta0_hat.se.bs)
     if(length(attr(terms(formula), "term.labels")) != 0){
-      for(i in 1:length(attr(terms(formula), "term.labels"))){
+      for(i in names(coef(model.bs,n1=length(grid))$smterms[-1])){
         invisible(capture.output(list <- coef(model.bs,n1=length(grid))$smterms[
-          which(sapply(names(coef(model.bs,n1=length(grid))$smterms), function(x){grepl(paste0(all.vars(formula)[i+1]), x)}) )]))
-        assign(paste0('beta_hat_',all.vars(formula)[i+1]),
+          which(names(coef(model.bs,n1=length(grid))$smterms) == i )]))
+        assign(paste0('beta_hat_',i),
                list[[1]]$coef$se)
       }
       beta_hat.se.bs <- cbind(beta_hat.se.bs, bind_cols(mget(paste0('beta_hat_',
-                                all.vars(formula)[!all.vars(formula) %in% re][-1]  ))))
+                                                              names(coef(model.bs,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) &
+                                                                                                               !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
     }
     M[b,] <- apply(abs((beta_hat.bs - beta_hat)/beta_hat.se.bs), 2, max)
     print(paste0('completed bootstrap sample ',b))
@@ -118,14 +120,15 @@ wildBS_CB <- function(formula, data, image.id='image_number',patient.id='patient
   beta_hat.se <- data.frame(beta0_hat_constant = beta0_hat_constant.se,
                             beta0_hat = beta0_hat.se)
   if(length(attr(terms(formula), "term.labels")) != 0){
-    for(i in 1:length(attr(terms(formula), "term.labels"))){
+    for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
       invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
-        which(sapply(names(coef(pffrmodel,n1=length(grid))$smterms), function(x){grepl(paste0(all.vars(formula)[i+1]), x)}) )]))
-      assign(paste0('beta_hat_',all.vars(formula)[i+1]),
+        which(names(coef(pffrmodel,n1=length(grid))$smterms) == i )]))
+      assign(paste0('beta_hat_',i),
              list[[1]]$coef$se)
     }
     beta_hat.se <- cbind(beta_hat.se, bind_cols(mget(paste0('beta_hat_',
-                      all.vars(formula)[!all.vars(formula) %in% re][-1]  ))))
+                                                            names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) &
+                                                                                                             !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
   }
   #get q and calculate the confidence bands
   q <- diag(apply(M, 2, function(x){quantile(x, 1-alpha, na.rm=T)}))

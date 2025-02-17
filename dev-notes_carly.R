@@ -69,6 +69,7 @@ usethis::use_data(melanoma_data_subset)
 usethis::use_r("data") #create a data.R file in the R subdirectory
 #write the data.R file description
 devtools::document() #do this to export your functions
+usethis::use_vignette("locacola-vignette")
 
 ###################################
 ##make preprocess_data() function #
@@ -96,23 +97,17 @@ sumfun.data <- preprocess_data(data=melanoma_data_subset, from.cell="Macrophage"
 
 #sumfun.data$tumor_grade <- ifelse(sumfun.data$tumor_grade=='1', 1, 0)
 sumfun.data$patient_id <- factor(sumfun.data$patient_id)
-sumfun.data$patient_gender <- factor(sumfun.data$patient_gender)
-sumfun.data$patient_age <- factor(sumfun.data$patient_age)
+sumfun.data$patient_gender <- ifelse(sumfun.data$patient_gender=='f', 1, 0)
+sumfun.data$patient_age <- ifelse(sumfun.data$patient_age=='<45', 0, 1)
 
 ##fit model
 #formula <- outcome ~ tumor_grade + patient_age + L.obs + s(patient_id, bs='re')
-formula <- outcome ~ g.obs + patient_age + s(patient_id, bs='re')
+formula <- outcome ~ g.obs + patient_gender + patient_age + s(patient_id, bs='re')
 
 pffrmodel <- fit_model(formula=formula,
                       data=sumfun.data, spatial.covars = c('g.obs'),
                       patient.id='patient_id')
 summary(pffrmodel)
-
-##Adjust pointwise CIs for multiplicity
-p.adjusted <- pointwise_test(data=sumfun.data, formula = formula, r.star = c(75,125), re=c('patient_id'),
-                                patient.id=c('patient_id'),alpha=.05,image.id=c('image_number'),
-                                spatial.covars = c('g.obs'),method = c('bonferroni'))
-p.adjusted
 
 ##Calculate CBs
 CBs <- wildBS_CB(formula=formula, image.id='image_number',patient.id='patient_id',
@@ -120,6 +115,12 @@ CBs <- wildBS_CB(formula=formula, image.id='image_number',patient.id='patient_id
                    B=10,alpha=.05,seed=456)
 #Plot CBs
 plot.wildBS_CB(CBs)
+
+##Adjust pointwise CIs for multiplicity
+p.adjusted <- pointwise_test(data=sumfun.data, formula = formula, r.star = c(50,100), re=c('patient_id'),
+                             patient.id=c('patient_id'),alpha=.05,image.id=c('image_number'),
+                             spatial.covars = c('g.obs'),method = c('bonferroni'))
+p.adjusted
 
 ##Run the F test
 #formula.full <- outcome ~ tumor_grade #+ patient_age + L.obs #+ s(patient_id, bs='re')
@@ -129,7 +130,7 @@ formula.red <- outcome ~ patient_gender + s(patient_id, bs='re')
 
 F.p.value <- Ftest(formula.full, formula.red,image.id='image_number',patient.id='patient_id',
                   data=sumfun.data, spatial.covars = c('g.obs'),
-                  B=10,alpha=.05,re=c('patient_id'),seed=456)
+                  B=50,alpha=.05,re=c('patient_id'),seed=456)
 F.p.value
 
 
