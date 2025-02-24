@@ -32,7 +32,7 @@ breast.sce <- JacksonFischer_2020_BreastCancer("sce", full_dataset = F)
 #colData(breast.sce)
 data <- data.frame(breast.sce$patient_id, breast.sce$image_number, breast.sce$cell_id, breast.sce$cell_x, breast.sce$cell_y, breast.sce$cell_metacluster,
                    breast.sce$patient_age, breast.sce$tumor_grade)
-names(data) <- c('patient_id','image_number','cell_id','cell_x','cell_y','cell_metacluster',
+names(data) <- c('patient_id','image_number','cell_id','cell_x','cell_y','cell_type',
                  'patient_age','tumor_grade')
 breastcancer_data_subset <- data[data$patient_id %in% c(1:42),] #trim down to just the first 10 images
 ##remove patients with unknown clinical subtype
@@ -43,6 +43,7 @@ usethis::use_data(breastcancer_data_subset)
 #usethis::use_r("data") #create a data.R file in the R subdirectory
 #write the data.R file description
 devtools::document() #do this to export your functions
+devtools::build_vignettes()
 
 ######################################################################
 ##make tiny sample of the melanoma data for tutorial purposes #
@@ -70,6 +71,7 @@ usethis::use_r("data") #create a data.R file in the R subdirectory
 #write the data.R file description
 devtools::document() #do this to export your functions
 usethis::use_vignette("locacola-vignette")
+devtools::load_all()
 
 ###################################
 ##make preprocess_data() function #

@@ -5,16 +5,15 @@
 #'
 #' @export
 
-wildBS_CB <- function(formula, data, image.id='image_number',patient.id='patient_id',
-                      spatial.covars = NULL, B=1000,alpha=.05,re=NULL,seed=456){
+wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=NULL,seed=456){
 
-  n <- dim(unique(data[paste0(patient.id)]))[1]
-  n.Im <- dim(unique(data[paste0(image.id)]))[1]
+  n <- dim(unique(data['patient_id']))[1]
+  n.Im <- dim(unique(data['image_number']))[1]
   grid <- sort(unique(data$r))
 
   #format image-level covariates
-  image.level.covars <- unique(data.frame(data[[paste0(image.id)]], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
-  names(image.level.covars)[1] <- paste0(image.id)
+  image.level.covars <- unique(data.frame(data[['image_number']], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
+  names(image.level.covars)[1] <- 'image_number'
   pffr.data <- image.level.covars
   if(dim(pffr.data)[1]!=n.Im){stop('spatial.covars argument may be invalid')}
 

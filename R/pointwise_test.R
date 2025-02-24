@@ -5,17 +5,17 @@
 #'
 #' @export
 
-pointwise_test <- function(data=sumfun.data, formula = formula, r.star = 100, re=c('patient_id'), patient.id=c('patient_id'),alpha=.05,
-                           image.id=c('image_number'),spatial.covars = c('g.obs'),method = c('Bonferroni')){
+pointwise_test <- function(data, formula = formula, r.star = 100, re=c('patient_id'),alpha=.05,
+                           spatial.covars = NULL,method = c('Bonferroni')){
 
-  n <- dim(unique(data[paste0(patient.id)]))[1]
-  n.Im <- dim(unique(data[paste0(image.id)]))[1]
+  n <- dim(unique(data['patient_id']))[1]
+  n.Im <- dim(unique(data['image_number']))[1]
   grid <- sort(unique(data$r))
   if(sum(r.star %in% grid)!=length(r.star)){stop('each r.star must be within the grid of radii used to compute the spatial summary function')}
 
   #format image-level covariates
-  image.level.covars <- unique(data.frame(data[[paste0(image.id)]], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
-  names(image.level.covars)[1] <- paste0(image.id)
+  image.level.covars <- unique(data.frame(data[['image_number']], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
+  names(image.level.covars)[1] <- 'image_number'
   pffr.data <- image.level.covars
   if(dim(pffr.data)[1]!=n.Im){stop('spatial.covars argument may be invalid')}
 
@@ -72,10 +72,20 @@ pointwise_test <- function(data=sumfun.data, formula = formula, r.star = 100, re
   Ests <- beta_hat[grid %in% r.star,]
   SEs <- beta_hat.se[grid %in% r.star,]
   Zs <- Ests/SEs
-  p.unadjusted <- sapply(abs(Zs), function(x){pnorm(x, alpha/2, lower.tail=F)})
+  p.unadjusted <- sapply(abs(Zs), function(x){2*pnorm(x, lower.tail=F)})
   if(length(r.star)>1){ p.adjusted <- apply(p.unadjusted, 2, p.adjust, method=paste0(method))}
   if(length(r.star)==1){ p.adjusted <- p.unadjusted}
   p.adjusted <- cbind(r.star, p.adjusted)
-  return(list(p.adjusted=p.adjusted))
+  if(method=='bonferroni'){
+    LB <- cbind(r.star, Ests - qnorm(alpha/2/length(r.star), lower.tail=F)*SEs)
+    UB <- cbind(r.star, Ests + qnorm(alpha/2/length(r.star), lower.tail=F)*SEs)
+    return(list(p.adjusted=p.adjusted, LB = LB, UB = UB))
+  }else if (method == 'none'){
+    LB <- cbind(r.star, Ests - qnorm(alpha/2, lower.tail=F)*SEs)
+    UB <- cbind(r.star, Ests + qnorm(alpha/2, lower.tail=F)*SEs)
+    return(list(p.adjusted=p.adjusted, LB = LB, UB = UB))
+  }else{
+    return(list(p.adjusted=p.adjusted))
+  }
 
 }

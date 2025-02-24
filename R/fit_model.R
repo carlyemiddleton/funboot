@@ -28,15 +28,15 @@ format.spatial.variable <- function(data, spatial.variable, grid, id){
 #data$tumor_grade <- ifelse(data$tumor_grade=='1', 1, 0) #omit this to see if our package returns pffr() errors
 #spatial.covars = c('L.obs')
 
-fit_model <- function(formula, data, spatial.covars = NULL, patient.id='patient_id',image.id='image_number'){
+fit_model <- function(formula, data, spatial.covars = NULL){
 
-  n <- dim(unique(data[paste0(patient.id)]))[1]
-  n.Im <- dim(unique(data[paste0(image.id)]))[1]
+  n <- dim(unique(data['patient_id']))[1]
+  n.Im <- dim(unique(data['image_number']))[1]
   grid <- sort(unique(data$r))
 
   #format image-level covariates
-  image.level.covars <- unique(data.frame(data[[paste0(image.id)]], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
-  names(image.level.covars)[1] <- paste0(image.id)
+  image.level.covars <- unique(data.frame(data[['image_number']], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
+  names(image.level.covars)[1] <- 'image_number'
   pffr.data <- image.level.covars
   if(dim(pffr.data)[1]!=n.Im){stop('spatial.covars argument may be invalid')}
 

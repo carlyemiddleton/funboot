@@ -6,16 +6,21 @@
 #' @export
 
 plot.wildBS_CB <- function(CB.object=CBs, alpha=.05){
-  re <- CB.object$re
+
+  plot.list <- list()
   for(i in 1:dim(CB.object$CB.lower)[2]){
-    plot(CB.object$grid, CB.object[[1]][,i], ylim=c(min(CB.object[[1]][,i]),
-                                                    min(CB.object[[1]][,i]) +
-                  1.5*abs(min(CB.object[[1]][,i])-max(CB.object[[2]][,i]))), col='magenta', main=paste0(names(CB.object[[1]][i])))
-    points(CB.object$grid, CB.object[[2]][,i], col='magenta', main=paste0(names(CB.object[[1]][i])))
-    points(CB.object$grid, CB.object[[4]][,i], col='black')
-    lines(CB.object$grid, CB.object[[4]][,i]- qnorm(1-alpha/2)*CB.object[[5]][,i], col='blue')
-    lines(CB.object$grid, CB.object[[4]][,i]+ qnorm(1-alpha/2)*CB.object[[5]][,i], col='blue')
-    legend(x='topleft', legend=c('Estimate','Pointwise CI (unadjusted)','Wild BS CB'), fill=c('black','blue','magenta'))
+           print(ggplot() + theme_bw() +
+             geom_line(aes(x=CB.object$grid,y=CB.object[[4]][,i], col='Estimate')) +
+             geom_line(aes(x=CB.object$grid,y=CB.object[[4]][,i]- qnorm(1-alpha/2)*CB.object[[5]][,i], col='Pointwise CI (unadjusted)')) +
+             geom_line(aes(x=CB.object$grid,y=CB.object[[4]][,i]+ qnorm(1-alpha/2)*CB.object[[5]][,i], col='Pointwise CI (unadjusted)')) +
+             geom_line(aes(x=CB.object$grid,y=CB.object[[1]][,i], col='Wild Bootstrap CB')) +
+             geom_line(aes(x=CB.object$grid,y=CB.object[[2]][,i], col='Wild Bootstrap CB')) +
+             labs(x='r', y='coefficient', col=' ') + theme(axis.title.y = element_text(size = 20),
+                                                           axis.title.x = element_text(size = 20)) +
+             geom_hline(yintercept=0, lty=2) + ggtitle(paste0(names(CB.object$CB.lower)[i]))  +
+             scale_color_manual(values = c("Estimate" = '#F8766D',
+                                           "Pointwise CI (unadjusted)"='#00BFC4',
+                                           "Wild Bootstrap CB"='#00BA38'))  )
   }
 }
 
