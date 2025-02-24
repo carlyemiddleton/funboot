@@ -14,4 +14,4 @@
 #'   \item{tumor_grade}{letter, from A to E}
 #' }
 #' @source \url{https://bodenmillergroup.github.io/imcdatasets/reference/JacksonFischer_2020_BreastCancer.html}
-"data_example"
+"breastcancer_data_subset"
