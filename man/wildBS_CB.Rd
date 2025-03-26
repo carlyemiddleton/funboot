@@ -11,7 +11,7 @@ wildBS_CB(
   B = 1000,
   alpha = 0.05,
   re = NULL,
-  seed = 456
+  seed = NULL
 )
 }
 \arguments{

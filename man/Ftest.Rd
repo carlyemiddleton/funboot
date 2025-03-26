@@ -7,14 +7,12 @@
 Ftest(
   formula.full,
   formula.red,
-  image.id = "image_number",
-  patient.id = "patient_id",
   data,
   spatial.covars = NULL,
   B = 1000,
   alpha = 0.05,
   re = NULL,
-  seed = 456
+  seed = NULL
 )
 }
 \arguments{

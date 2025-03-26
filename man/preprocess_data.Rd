@@ -13,9 +13,9 @@ preprocess_data(
   perm.yn = F,
   R = 200,
   inc = 1,
-  image.dims = c(0, 1200, 0, 1200),
-  summary.function = "g",
-  seed = 456
+  image.dims = NULL,
+  summary.function = "L",
+  seed = NULL
 )
 }
 \arguments{
