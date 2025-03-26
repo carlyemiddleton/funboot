@@ -5,16 +5,16 @@
 #'
 #' @export
 
-Ftest <- function(formula.full, formula.red, image.id='image_number',patient.id='patient_id',
-                  data, spatial.covars = NULL, B=1000,alpha=.05,re=NULL,seed=456){
+Ftest <- function(formula.full, formula.red,
+                  data, spatial.covars = NULL, B=1000,alpha=.05,re=NULL,seed=NULL){
 
-  n <- dim(unique(data[paste0(patient.id)]))[1]
-  n.Im <- dim(unique(data[paste0(image.id)]))[1]
+  n <- dim(unique(data['patient_id']))[1]
+  n.Im <- dim(unique(data['image_number']))[1]
   grid <- sort(unique(data$r))
 
   #format image-level covariates
-  image.level.covars <- unique(data.frame(data[[paste0(image.id)]], data[all.vars(formula)[c(-1,-which(all.vars(formula)%in%spatial.covars))]]))
-  names(image.level.covars)[1] <- paste0(image.id)
+  image.level.covars <- unique(data.frame(data[['image_number']], data[all.vars(formula.full)[c(-1,-which(all.vars(formula.full)%in%spatial.covars))]]))
+  names(image.level.covars)[1] <- 'image_number'
   pffr.data <- image.level.covars
   if(dim(pffr.data)[1]!=n.Im){stop('spatial.covars argument may be invalid')}
 
@@ -77,9 +77,8 @@ Ftest <- function(formula.full, formula.red, image.id='image_number',patient.id=
     M[b] <- F.b
     print(paste0('completed bootstrap sample ',b))
   }
-  #hist(M)
   p.value <- mean(M > F.test, na.rm=T)
-  return(p.value)
+  return(list(p.value=p.value, M=M))
 
 }
 

@@ -22,8 +22,8 @@
 #' @export
 
 preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=50, perm.yn=F,
-                           R=200, inc=1, image.dims=c(0,1200,0,1200), summary.function='g',seed=456){
-  set.seed(seed)
+                            R=200, inc=1, image.dims=NULL, summary.function='L',seed=NULL){
+  if(!is.null(seed)){set.seed(seed)}
   image.xmax <- image.dims[2]
   image.ymax <- image.dims[4]
   image.xmin <- image.dims[1]
@@ -31,7 +31,7 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
   W <- spatstat.geom::owin(c(image.xmin,image.xmax), c(image.ymin,image.ymax))
 
   #########################
-  ##Calculate sumfun.data ##
+  ##Calculate sumfun.data #
   #########################
 
   if(!(summary.function %in% c('K', 'L', 'g'))){stop("summary.function must be one of 'K', 'L', or g")}
@@ -92,32 +92,32 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
   if(summary.function=='L'){
     sumfun.data <- Ldata
     if(perm.yn==T){sumfun.data$L.pmean <- L.pmean.vec;
-                   sumfun.data$outcome <- sumfun.data$L.obs - sumfun.data$L.pmean
-                  }else{
-                   sumfun.data$L.pmean <- NA;
-                   sumfun.data$outcome <- sumfun.data$L.obs - sumfun.data$L.expect}
+    sumfun.data$outcome <- sumfun.data$L.obs - sumfun.data$L.pmean
+    }else{
+      sumfun.data$L.pmean <- NA;
+      sumfun.data$outcome <- sumfun.data$L.obs - sumfun.data$L.expect}
     names(sumfun.data) <- c('r','L.expect','L.obs','image_number','L.pmean','outcome')
   }else if(summary.function=='g'){
     sumfun.data <- gdata
     if(perm.yn==T){sumfun.data$g.pmean <- g.pmean.vec;
-                   sumfun.data$outcome <- sumfun.data$g.obs - sumfun.data$g.pmean
-                  }else{
-                   sumfun.data$g.pmean <- NA;
-                   sumfun.data$outcome <- sumfun.data$g.obs - sumfun.data$g.expect}
+    sumfun.data$outcome <- sumfun.data$g.obs - sumfun.data$g.pmean
+    }else{
+      sumfun.data$g.pmean <- NA;
+      sumfun.data$outcome <- sumfun.data$g.obs - sumfun.data$g.expect}
     names(sumfun.data) <- c('r','g.expect','g.obs','image_number','g.pmean','outcome')
   }else{
     sumfun.data <- Kdata
     if(perm.yn==T){sumfun.data$K.pmean <- K.pmean.vec;
-                   sumfun.data$outcome <- sumfun.data$K.obs - sumfun.data$K.pmean
-                  }else{
-                   sumfun.data$K.pmean <- NA;
-                   sumfun.data$outcome <- sumfun.data$K.obs - sumfun.data$K.expect}
+    sumfun.data$outcome <- sumfun.data$K.obs - sumfun.data$K.pmean
+    }else{
+      sumfun.data$K.pmean <- NA;
+      sumfun.data$outcome <- sumfun.data$K.obs - sumfun.data$K.expect}
     names(sumfun.data) <- c('r','K.expect','K.obs','image_number','K.pmean','outcome')
   }
   covariate.df <- data
   covariate.df$cell_id <- covariate.df$cell_x <- covariate.df$cell_y <- covariate.df[['cell_type']] <- NULL
   covariate.df <- unique(covariate.df)
   sumfun.data <- merge(sumfun.data, covariate.df, by='image_number'
-                      , all=F) #all=F:  if an image doesn't meet the qc.cutoff, don't include its covariates
+                       , all=F) #all=F:  if an image doesn't meet the qc.cutoff, don't include its covariates
   return(sumfun.data)
 }

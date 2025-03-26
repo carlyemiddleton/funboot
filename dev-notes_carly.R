@@ -84,17 +84,17 @@ library(spatstat.explore)
 library(refund)
 library(dplyr)
 
-detach("package:phantem", unload = TRUE)
+detach("package:funboot", unload = TRUE)
 library(devtools)
-devtools::install_github('carlyemiddleton/phantem')
-library(phantem)
+devtools::install_github('carlyemiddleton/funboot')
+library(funboot)
 
 data("melanoma_data_subset")
 data("breastcancer_data_subset")
 
 ##preprocess data
 sumfun.data <- preprocess_data(data=melanoma_data_subset, from.cell="Macrophage", to.cell="CD8- T cell",
-                      qc.cellcount.cutoff=20, P=50, perm.yn=T, cell.label = 'cell_type', image.id='image_number',
+                      qc.cellcount.cutoff=20, P=50, perm.yn=F,
                        R=200, inc=1, image.dims=c(0,1200,0,1200), summary.function='g',seed=456)
 
 #sumfun.data$tumor_grade <- ifelse(sumfun.data$tumor_grade=='1', 1, 0)
@@ -103,18 +103,17 @@ sumfun.data$patient_gender <- ifelse(sumfun.data$patient_gender=='f', 1, 0)
 sumfun.data$patient_age <- ifelse(sumfun.data$patient_age=='<45', 0, 1)
 
 ##fit model
-#formula <- outcome ~ tumor_grade + patient_age + L.obs + s(patient_id, bs='re')
-formula <- outcome ~ g.obs + patient_gender + patient_age + s(patient_id, bs='re')
+#formula <- outcome ~ tumor_grade + patient_age + g.obs
+formula <- outcome ~  patient_gender + patient_age + s(patient_id, bs='re')
 
-pffrmodel <- fit_model(formula=formula,
-                      data=sumfun.data, spatial.covars = c('g.obs'),
-                      patient.id='patient_id')
+pffrmodel <- fit_model(formula=formula,spatial.covars = 'g.obs',
+                      data=sumfun.data)
 summary(pffrmodel)
 
 ##Calculate CBs
-CBs <- wildBS_CB(formula=formula, image.id='image_number',patient.id='patient_id',
-                   data=sumfun.data, spatial.covars = c('g.obs'), re=c('patient_id'),
-                   B=10,alpha=.05,seed=456)
+CBs <- wildBS_CB(formula=formula,
+                   data=sumfun.data, spatial.covars = NULL, re=c('patient_id'),
+                   B=3,alpha=.05,seed=456)
 #Plot CBs
 plot.wildBS_CB(CBs)
 

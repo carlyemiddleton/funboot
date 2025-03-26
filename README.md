@@ -22,8 +22,8 @@ For the spatstat package, it is recommended to load only the above spatstat modu
 
 ```
 library(devtools)
-devtools::install_github('carlyemiddleton/phantem')
-library(phantem)
+devtools::install_github('carlyemiddleton/funboot')
+library(funboot)
 data(data_example)
 ```
 

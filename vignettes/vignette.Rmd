@@ -1,8 +1,8 @@
 ---
-title: "Analyzing multiplex imaging data using functional regression"
+title: "Analyzing multiplex imaging data using functional regression and wild bootstrap"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{locacola-vignette}
+  %\VignetteIndexEntry{vignette}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -16,7 +16,7 @@ knitr::opts_chunk$set(
 
 **Carly Middleton**
 
-In this tutorial, we demonstrate the utilities of our package, Loca-Cola, for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to two small subsets of 
+In this tutorial, we demonstrate the utilities of our package, FunBoot, for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to two small subsets of imaging mass cytometry data:  one breast cancer dataset and one melanoma dataset. 
 
 **Installation**
 
@@ -28,7 +28,7 @@ library(spatstat.random)
 library(spatstat.explore)
 library(refund)
 library(dplyr)
-library(phantem)
+library(funboot)
 
 library(ggplot2)
 library(patchwork)
@@ -123,7 +123,7 @@ sumfun.data_macrophage <- preprocess_data(data=breastcancer_data_subset, from.ce
 sumfun.data$grade2 <- ifelse(sumfun.data$tumor_grade=='2', 1, 0)
 formula <- outcome ~ patient_age + grade2 
 
-pffrmodel <- phantem::fit_model(formula=formula,
+pffrmodel <- funboot::fit_model(formula=formula,
                       data=sumfun.data, 
                       patient.id='patient_id')
 summary(pffrmodel)

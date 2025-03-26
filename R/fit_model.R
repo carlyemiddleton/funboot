@@ -4,13 +4,13 @@
 #' @return It returns res.wildBS
 
 format.spatial.variable <- function(data, spatial.variable, grid, id){
-    column <- function(i){data[data[id] == i,][spatial.variable][1] } #calling the outcome function Y
-    mat.transpose <- data.frame(grid = grid)
-    for(i in sort(unique(data[id])[[1]])){
-      mat.transpose <- cbind(mat.transpose, column(i))
-    }
-    mat <- t(mat.transpose[,-c(1)])
-    return(mat)
+  column <- function(i){data[data[id] == i,][spatial.variable][1] } #calling the outcome function Y
+  mat.transpose <- data.frame(grid = grid)
+  for(i in sort(unique(data[id])[[1]])){
+    mat.transpose <- cbind(mat.transpose, column(i))
+  }
+  mat <- t(mat.transpose[,-c(1)])
+  return(mat)
 }
 
 
