@@ -15,12 +15,12 @@ knitr::opts_chunk$set(
 )
 ```
 
-In this tutorial, we demonstrate the utilities of our package, *funboot,* for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to two small subsets of imaging mass cytometry data:  one breast cancer dataset and one melanoma dataset. 
+In this tutorial, we demonstrate the utilities of our package, *funboot,* for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to a small data subset of imaging mass cytometry breast cancer data.
 
 **Load package and dependencies**
 
 ```{r setup, error=FALSE, warning=FALSE, message=FALSE}
-library(funboot)
+devtools::load_all('C:/Users/carly/Documents/funboot') 
 
 #Dependencies for the analysis functions
 library(spatstat.data)
@@ -35,7 +35,6 @@ library(dplyr)
 library(ggplot2)
 library(patchwork)
 
-devtools::load_all()
 ```
 
 **Disclaimer:**  This tutorial simply demonstrates how to user our functions, and we do not claim it to be a full analysis of data by which biological conclusions should be drawn.  We take several shortcuts in this tutorial in order to save computation time for the sake of demonstration (e.g., small number of bootstrap samples, only 10 images worth of data) that should not be used during a full data analysis.
@@ -105,8 +104,6 @@ p <- pointwise_test(data=sumfun.data, formula = outcome ~ 1, r.star = c(50,100),
 p
 
 ```
-
-## Melanoma Data
 
 The last function we demonstrate here is **Ftest().**  Suppose we wish to test the significance of patient age and $\hat{L}_{Endo,TM}(r)$ (the L curve of T cells or macrophages around endothelial cells) simultaneously as predictors of $\hat{L}_{Endo,Pro}(r) - r$. We can run the wild bootstrap F test to jointly test these two covariates.
 
