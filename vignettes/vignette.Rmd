@@ -44,14 +44,14 @@ library(patchwork)
 First, we will analyze a 10-image subset of the popular [Jackson Fischer breast cancer dataset](https://bodenmillergroup.github.io/imcdatasets/) [@jackson-fischer].  The subset is available within *funboot,* and it contains images 29, 30, 93, 104, 127, 164, 185, 224, 254, and 280 from the original dataset.  We load in the subset below:  
 
 ```{r fig.width = 7, fig.height = 12}
-data("breastcancer_data_subset")
+data("breastcancer_data_subset_10images")
 ```
 
 Suppose we are interested in cell metaclusters 3 (T cells), 7 (Endothelial cells), 9 (Small circular stromal cells), and 16 (Proliferative epithelial cells).  Let's start by examining the cell distributions in each image, using the **plot_images()** function from *funboot.*
 
 ```{r fig.width = 7, fig.height = 12}
 pallete <- c('Other' = "gray", '7' = 'gold', '3' = "darkgreen", '9' = 'skyblue', '16'='cyan4')
-plot.list <- plot_images(data = breastcancer_data_subset, images.to.plot = unique(breastcancer_data_subset$image_number), cell.types.to.plot=c(7,3,9,16), pallete=pallete)
+plot.list <- plot_images(data = breastcancer_data_subset_10images, images.to.plot = unique(breastcancer_data_subset_10images$image_number), cell.types.to.plot=c(7,3,9,16), pallete=pallete)
 
 (plot.list[[1]] + plot.list[[2]])/
 (plot.list[[3]] + plot.list[[4]])/
@@ -71,7 +71,7 @@ and performing inference on the intercept $\beta_0(r)$.  The first step is to pr
 
 
 ```{r }
-sumfun.data <- preprocess_data(data=breastcancer_data_subset, from.cell=7, to.cell=3,
+sumfun.data <- preprocess_data(data=breastcancer_data_subset_10images, from.cell=7, to.cell=3,
                                qc.cellcount.cutoff=20, P=50, perm.yn=T,
                                R=200, inc=1, image.dims=c(0,1000,0,1000),
                                summary.function='L',seed=456)
@@ -108,7 +108,7 @@ p
 The last function we demonstrate here is **Ftest().**  Suppose we wish to test the significance of patient age and $\hat{L}_{Endo,TM}(r)$ (the L curve of T cells or macrophages around endothelial cells) simultaneously as predictors of $\hat{L}_{Endo,Pro}(r) - r$. We can run the wild bootstrap F test to jointly test these two covariates.
 
 ```{r }
-spatialcov.data <- preprocess_data(data=breastcancer_data_subset, from.cell=7, to.cell=16,
+spatialcov.data <- preprocess_data(data=breastcancer_data_subset_10images, from.cell=7, to.cell=16,
                                qc.cellcount.cutoff=20, P=50, perm.yn=T,
                                R=200, inc=1, image.dims=c(0,1000,0,1000),
                                summary.function='L',seed=456)
