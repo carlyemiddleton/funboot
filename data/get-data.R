@@ -5,9 +5,9 @@ library(BiocManager)
 library(imcdatasets)
 
 ##100-image subset of breast cancer dataset
-breast.sce <- JacksonFischer_2020_BreastCancer("sce", full_dataset = F)  
+breast.sce <- imcdatasets::JacksonFischer_2020_BreastCancer("sce", full_dataset = F)
 View(colData(breast.sce))
-range(colData(breast.sce)$cell_x) #note the window dimensions 
+range(colData(breast.sce)$cell_x) #note the window dimensions
 range(colData(breast.sce)$cell_y)
 
 colData(breast.sce)

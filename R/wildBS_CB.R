@@ -159,7 +159,9 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=
   names(MoE) <- names(beta_hat)
   CB.lower <- beta_hat - MoE
   CB.upper <- beta_hat + MoE
-  CBs <- list(CB.lower, CB.upper, grid, beta_hat, beta_hat.se, q, re)
-  names(CBs) <- c('CB.lower','CB.upper', 'grid', 'pffr.Estimates', 'pffr.SEs', 'q', 're')
+  test.stats <- apply(abs((beta_hat - 0)/beta_hat.se), 2, max)
+  p.vals <- sapply(1:dim(M)[2], function(i){mean(M[,i]>test.stats[i])})
+  CBs <- list(CB.lower, CB.upper, grid, beta_hat, beta_hat.se, q, re, M, test.stats, p.vals)
+  names(CBs) <- c('CB.lower','CB.upper', 'grid', 'pffr.Estimates', 'pffr.SEs', 'q', 're', 'M', 'test.stats', 'p.vals')
   return(CBs)
 }
