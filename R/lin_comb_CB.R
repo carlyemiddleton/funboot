@@ -18,7 +18,7 @@ calc.preds <- function(beta_hat, lin.comb){
 }
 
 ###############################################################################################
-lin.comb_CB <- function(formula,lin.comb=list(), data, spatial.covars = NULL, B1=500, B2=500,
+lin_comb_CB <- function(formula,lin.comb=list(), data, spatial.covars = NULL, B1=500, B2=100,
                         alpha=.05,re=NULL,n_cores=NULL,seed=NULL){
   first_layer <- function(b1, B2=B2,preds=preds,pffrmodel=pffrmodel,c=c,e=function(i){outcome[i,] - predict(pffrmodel)[i,]},
                           n.Im=100,grid=grid,model.bs=model.bs,c.bs=c.bs,e.bs=e.bs,pffr.data.bs=pffr.data.bs,pffr.data=pffr.data,
