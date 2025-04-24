@@ -18,6 +18,7 @@ names(breastcancer_data_subset_100images) <- c('patient_id','image_number','cell
 library(usethis)
 usethis::use_data(breastcancer_data_subset_100images)
 usethis::use_r('data')
+devtools::document()
 
 
 
