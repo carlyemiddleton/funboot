@@ -2,8 +2,8 @@
 
 S3method(plot,wildBS_CB)
 export(Ftest)
+export(calc.preds)
 export(fit_model)
 export(plot_images)
-export(pointwise_test)
 export(preprocess_data)
 export(wildBS_CB)
