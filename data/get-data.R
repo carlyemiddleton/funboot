@@ -15,17 +15,9 @@ breastcancer_data_subset_100images <- data.frame(breast.sce$patient_id, breast.s
                    breast.sce$patient_age, breast.sce$tumor_grade)
 names(breastcancer_data_subset_100images) <- c('patient_id','image_number','cell_id','cell_x','cell_y','cell_type',
                  'patient_age','tumor_grade')
-usethis::use_data(breastcancer_data_subset_100images)
-
-#################################################
-##make tiny sample of the data for the vignette #
-#################################################
 library(usethis)
-
-breastcancer_data_subset_10images <- breastcancer_data_subset_100images[breastcancer_data_subset_100images$patient_id %in% c(1:42),] #trim down to just the first 10 images
-#save(breastcancer_data_subset, file='breastcancer_data_subset.RData')
-usethis::use_data(breastcancer_data_subset_10images)
-
+usethis::use_data(breastcancer_data_subset_100images)
+usethis::use_r('data')
 
 
 
