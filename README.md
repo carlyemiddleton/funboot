@@ -1,10 +1,10 @@
-# Loca-Cola
+# FunBoot
 
 Carly Middleton
 
 ## Installation
 
-Loca-Cola has several dependencies.  First, install and load the dependencies:
+First, install and load the dependencies:
 
 ```
 library(spatstat.data)
@@ -14,6 +14,7 @@ library(spatstat.random)
 library(spatstat.explore)
 library(refund)
 library(dplyr)
+library(parallel)
 ```
 
 For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above have interfered with with the pffr() function.
@@ -35,3 +36,6 @@ Vignette things to cover:
 5. multiplicity adjustment
 6. wildBS_CB() and plot.wildBS_CB()
 7. Ftest() 
+
+
+Should make a note about the required variable naming format for funboot

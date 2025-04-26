@@ -2,7 +2,7 @@
 % Please edit documentation in R/wildBS_CB.R
 \name{wildBS_CB}
 \alias{wildBS_CB}
-\title{Preprocesses data}
+\title{Calculates wild bootstrap confidence bands for \emph{pffr()} model coefficients}
 \usage{
 wildBS_CB(
   formula,
@@ -15,11 +15,23 @@ wildBS_CB(
 )
 }
 \arguments{
-\item{sumfun.data}{is}
+\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model}
+
+\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+
+\item{spatial.covars}{Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')}
+
+\item{B}{Number of bootstrap samples}
+
+\item{alpha}{Desired significance level for the confidence band. For example, 0.05}
+
+\item{re}{Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')}
+
+\item{seed}{Random seed to be used during the bootstrap resampling (optional).}
 }
 \value{
-It returns res.wildBS
+A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard erorrs from the \emph{pffr()} output and additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild boostrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
 }
 \description{
-Preprocesses data
+Calculates wild bootstrap confidence bands for \emph{pffr()} model coefficients
 }

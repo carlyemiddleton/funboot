@@ -1,9 +1,10 @@
-#' @title Preprocesses data
+#' @title Calculates predicted values for linear combinations of *pffr()* model coefficient functions
 #'
-#' @param grid the grid that the CBs were evaluated over.  eg. 0:200
-#' @return It returns res.wildBS
-#'
-#' @export
+#' @param beta_hat An R x p matrix of values containing the estimated model coefficient functions from *pffr()*
+#' @param lin.comb a list containing the values of the covariates across radii in the linear combination.
+#'                 For example, if we want a confidence band for the linear combination \eqn{\beta_0(r) + \beta_1(r)Group + \beta_2(r)L_{AB}(r)} for patient 1, use **lin.comb** = list(group = data[data$patient_id=='1',]$group, Lab = data[data$patient_id=='1',]$Lab).
+#'                 To calculate a confidence band for \eqn{\beta_0(r)} only, use **lin.comb**=list()
+#' @return A length-R vector containing predicted values for the linear combination across radii
 
 calc.preds <- function(beta_hat, lin.comb){
   newdata <- beta_hat
@@ -17,7 +18,27 @@ calc.preds <- function(beta_hat, lin.comb){
   return(preds)
 }
 
-###############################################################################################
+
+#' @title Calculates wild bootstrap confidence bands for linear combinations of *pffr()* model coefficient functions
+#'
+#' @param formula An object of class *formula*.  The formula for the *pffr()* model
+#' @param lin.comb a list containing the values of the covariates across radii in the linear combination.
+#'                 For example, if we want a confidence band for the linear combination \eqn{\beta_0(r) + \beta_1(r)Group + \beta_2(r)L_{AB}(r)} for patient 1, use **lin.comb** = list(group = data[data$patient_id=='1',]$group, Lab = data[data$patient_id=='1',]$Lab).
+#'                 To calculate a confidence band for \eqn{\beta_0(r)} only, use **lin.comb**=list()
+#' @param data Data frame obtained from the output of *funboot::preprocess_data()*
+#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#' @param B1 Number of bootstrap samples in the outside layer
+#' @param B2 Number of bootstrap samples in the inside layer
+#' @param alpha Desired significance level for the confidence band. For example, 0.05
+#' @param re Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
+#' @param n_cores Number of cores to use during parallel processing.  If NULL, parallel::detectCores(logical=FALSE)-1 cores are used
+#' @param seed Random seed to be used during the bootstrap resampling (optional).
+#'
+#' @return A list containing the lower and upper bounds of the confidence band, as well as estimated model coefficients from the *pffr()* output and
+#'         additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild boostrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
+#'         'M1' is the bootstrap distribution of M from the outer layer.  'bs.SE' are the bootstrap standard errors for each radius, yielded by the inner layer of resampling
+#' @export
+
 lin_comb_CB <- function(formula,lin.comb=list(), data, spatial.covars = NULL, B1=500, B2=100,
                         alpha=.05,re=NULL,n_cores=NULL,seed=NULL){
   first_layer <- function(b1, B2=B2,preds=preds,pffrmodel=pffrmodel,c=c,e=function(i){outcome[i,] - predict(pffrmodel)[i,]},

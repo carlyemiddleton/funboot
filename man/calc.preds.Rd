@@ -2,16 +2,20 @@
 % Please edit documentation in R/lin_comb_CB.R
 \name{calc.preds}
 \alias{calc.preds}
-\title{Preprocesses data}
+\title{Calculates predicted values for linear combinations of \emph{pffr()} model coefficient functions}
 \usage{
 calc.preds(beta_hat, lin.comb)
 }
 \arguments{
-\item{grid}{the grid that the CBs were evaluated over.  eg. 0:200}
+\item{beta_hat}{An R x p matrix of values containing the estimated model coefficient functions from \emph{pffr()}}
+
+\item{lin.comb}{a list containing the values of the covariates across radii in the linear combination.
+For example, if we want a confidence band for the linear combination \eqn{\beta_0(r) + \beta_1(r)Group + \beta_2(r)L_{AB}(r)} for patient 1, use \strong{lin.comb} = list(group = data\link{data$patient_id=='1',}$group, Lab = data\link{data$patient_id=='1',}$Lab).
+To calculate a confidence band for \eqn{\beta_0(r)} only, use \strong{lin.comb}=list()}
 }
 \value{
-It returns res.wildBS
+A length-R vector containing predicted values for the linear combination across radii
 }
 \description{
-Preprocesses data
+Calculates predicted values for linear combinations of \emph{pffr()} model coefficient functions
 }

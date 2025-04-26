@@ -2,18 +2,20 @@
 % Please edit documentation in R/fit_model.R
 \name{fit_model}
 \alias{fit_model}
-\title{Preprocesses data}
+\title{Fits a the \emph{pffr()} model to spatial summary function data}
 \usage{
 fit_model(formula, data, spatial.covars = NULL)
 }
 \arguments{
-\item{sumfun.data}{is}
+\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model}
 
-\item{covars}{is a vector of model covariate names found in sumfun.data}
+\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+
+\item{spatial.covars}{Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')}
 }
 \value{
-It returns res.wildBS
+A \emph{pffr()} model object.  See \emph{refund::pffr()}
 }
 \description{
-Preprocesses data
+Fits a the \emph{pffr()} model to spatial summary function data
 }

@@ -2,16 +2,22 @@
 % Please edit documentation in R/plot_images.R
 \name{plot_images}
 \alias{plot_images}
-\title{Preprocesses data}
+\title{Plots the locations of cells within a set of images, colored by cell phenotype.}
 \usage{
 plot_images(data, images.to.plot, cell.types.to.plot, pallete)
 }
 \arguments{
-\item{grid}{the grid that the CBs were evaluated over.  eg. 0:200}
+\item{data}{Data frame containing the cell locations and cell types to be plotted.  It should contain the variables \emph{image_number,} \emph{cell_x}, \emph{cell_y}, and \emph{cell_type} as in the example data.}
+
+\item{images.to.plot}{Vector containing the values of \emph{image_number} corresponding to the images to be plotted. For example, 1:10}
+
+\item{cell.types.to.plot}{Vector containing the values of \emph{cell_type} corresponding to the cell types to be plotted with color.  For example, c(7,3,9,16)}
+
+\item{pallette}{Vector containing assignments of \emph{cell_type} values to their desired color.  One element should be titled "Other" and specify the desired color for all other cells.  For example, c('Other' = "gray", '7' = 'gold', '3' = "darkgreen", '9' = 'skyblue', '16'='cyan4')}
 }
 \value{
-It returns res.wildBS
+A list containing a ggplot object for each image to be plotted
 }
 \description{
-Preprocesses data
+Plots the locations of cells within a set of images, colored by cell phenotype.
 }

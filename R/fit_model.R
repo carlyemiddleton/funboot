@@ -1,7 +1,11 @@
-#' @title format.spatial.variable takes a spatial variable in long format and puts it into matrix format for input into pffr()
-#' @param sumfun.data is
-#' @param covars is a vector of model covariate names found in sumfun.data
-#' @return It returns res.wildBS
+#' @title Takes a spatial variable in long format and puts it into wide format for input into pffr()
+#'
+#' @param data Data frame obtained from the output of *funboot::preprocess_data()*
+#' @param spatial.variable The spatial variable to perform the transformation on.  For example, 'outcome' or 'L.obs'
+#' @param grid The grid on which the spatial summary function is evaluated.  For example, 0:200
+#' @param id The 'by' variable for the transformation, typically the image ID number.  For example, 'image_id'
+#'
+#' @return A wide-format object compatible with the **data** argument in *pffr()*
 
 format.spatial.variable <- function(data, spatial.variable, grid, id){
   column <- function(i){data[data[id] == i,][spatial.variable][1] } #calling the outcome function Y
@@ -16,17 +20,15 @@ format.spatial.variable <- function(data, spatial.variable, grid, id){
 
 
 
-
-#' @title Preprocesses data
-#' @param sumfun.data is
-#' @param covars is a vector of model covariate names found in sumfun.data
-#' @return It returns res.wildBS
+#' @title Fits a the *pffr()* model to spatial summary function data
+#'
+#' @param formula An object of class *formula*.  The formula for the *pffr()* model
+#' @param data Data frame obtained from the output of *funboot::preprocess_data()*
+#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#'
+#' @return A *pffr()* model object.  See *refund::pffr()*
+#'
 #' @export
-
-#formula <- outcome ~ patient_age + tumor_grade + L.obs #+ s(image_number, bs="re")
-#data <- sumfun.data
-#data$tumor_grade <- ifelse(data$tumor_grade=='1', 1, 0) #omit this to see if our package returns pffr() errors
-#spatial.covars = c('L.obs')
 
 fit_model <- function(formula, data, spatial.covars = NULL){
 

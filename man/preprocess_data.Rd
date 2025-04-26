@@ -2,7 +2,7 @@
 % Please edit documentation in R/preprocess_data.R
 \name{preprocess_data}
 \alias{preprocess_data}
-\title{Preprocesses data}
+\title{Preprocesses raw data}
 \usage{
 preprocess_data(
   data,
@@ -13,37 +13,37 @@ preprocess_data(
   perm.yn = F,
   R = 200,
   inc = 1,
-  image.dims = NULL,
+  image.dims,
   summary.function = "L",
   seed = NULL
 )
 }
 \arguments{
-\item{data}{is}
+\item{data}{Data frame containing the variables \strong{patient_id}, \strong{image_number}, \strong{cell_id}, \strong{cell_x}, \strong{cell_y}, \strong{cell_type}, and any covariates to be adjusted for, as in the example data.}
 
-\item{from.cell}{is}
+\item{from.cell}{The "from" cell type to be used in the calculation of the spatial summary function}
 
-\item{to.cell}{is}
+\item{to.cell}{The "to" cell type to be used in the calculation of the spatial summary function}
 
-\item{qc.cellcount.cutoff}{is}
+\item{qc.cellcount.cutoff}{If an image has \strong{qc.cellcount.cutoff} or less "to" cells, or \strong{qc.cellcount.cutoff} or less "from" cells, the image is excluded from the calculation of the spatial summary function.  (Analogous to SpaceANOVA's \strong{Hard_ths} parameter.)}
 
-\item{P}{is}
+\item{P}{The number of permutations to use in the simulation envelope procedure, as long as \strong{perm.yn}=T.}
 
-\item{perm.yn}{is}
+\item{perm.yn}{If TRUE, the permuted mean of the spatial summary function is calculated using the permutation envelope procedure described in the \href{https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900}{Wilson paper}.  The outcome variable to be used in \emph{pffr()} is then calculated by subtracting the value of the observed spatial summary function from its permuted mean.  If \emph{perm.yn}=F, the outcome variable is calculated by subtracting the observed spatial summary function from its expected value assuming complete spatial randomness.}
 
-\item{R}{is}
+\item{R}{The maximum radius at which the observed spatial summary function should be evaluated.}
 
-\item{inc}{is}
+\item{inc}{The increment of units by which the spatial summary function should be calculated.  For example, if \strong{R}=200 and \strong{inc}=1, the function is evaluated on the grid 0:200.}
 
-\item{image.dims}{is}
+\item{image.dims}{Vector containing the dimensions of the images on which cell locations are recorded, structured as c(x.min, x.max, y.min, y.max).  All images must be of the same dimension.}
 
-\item{summary.function}{is}
+\item{summary.function}{The spatial summary function to be calculated.  Must be one of 'K', 'L', or 'g'.}
 
-\item{seed}{only makes a difference if perm.yn is switched on}
+\item{seed}{Random seed to be used during the permutation envelope procedure (optional).}
 }
 \value{
-It returns sumfun.data
+A data frame containing values of the observed and expected spatial summary function, as well as values of the covariates from the input dataset. L.pmean = permuted mean from the permutation envelope, outcome = L.expect - L.obs if \strong{perm.yn}=F, or L.expect - L.pmean if \strong{perm.yn}=T.
 }
 \description{
-Preprocesses data
+This function preprocess raw data by: 1.) filtering out sparse images using \strong{qc.cellcount.cutoff}, 2.) calculating the desired spatial summary function, 3.) calculating the outcome variable to be used in \emph{pffr()}
 }

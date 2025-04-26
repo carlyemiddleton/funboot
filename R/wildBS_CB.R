@@ -1,7 +1,14 @@
-#' @title Preprocesses data
+#' @title Calculates wild bootstrap confidence bands for *pffr()* model coefficients
 #'
-#' @param sumfun.data is
-#' @return It returns res.wildBS
+#' @param formula An object of class *formula*.  The formula for the *pffr()* model
+#' @param data Data frame obtained from the output of *funboot::preprocess_data()*
+#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#' @param B Number of bootstrap samples
+#' @param alpha Desired significance level for the confidence band. For example, 0.05
+#' @param re Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
+#' @param seed Random seed to be used during the bootstrap resampling (optional).
+#'
+#' @return A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard erorrs from the *pffr()* output and additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild boostrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
 #'
 #' @export
 

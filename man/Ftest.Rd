@@ -2,7 +2,7 @@
 % Please edit documentation in R/Ftest.R
 \name{Ftest}
 \alias{Ftest}
-\title{Preprocesses data}
+\title{Conducts the wild bootstrap partial F test for two nested \emph{pffr()} models}
 \usage{
 Ftest(
   formula.full,
@@ -10,17 +10,28 @@ Ftest(
   data,
   spatial.covars = NULL,
   B = 1000,
-  alpha = 0.05,
   re = NULL,
   seed = NULL
 )
 }
 \arguments{
-\item{grid}{the grid that the CBs were evaluated over.  eg. 0:200}
+\item{formula.full}{An object of class \emph{formula}.  The formula for the full model}
+
+\item{formula.red}{An object of class \emph{formula}.  The formula for the reuced model}
+
+\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+
+\item{spatial.covars}{Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')}
+
+\item{B}{Number of bootstrap samples}
+
+\item{re}{Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')}
+
+\item{seed}{Random seed to be used during the bootstrap resampling (optional).}
 }
 \value{
-It returns res.wildBS
+A list containing the p-value for the F test and the bootstrap distribution of M
 }
 \description{
-Preprocesses data
+Conducts the wild bootstrap partial F test for two nested \emph{pffr()} models
 }

@@ -1,12 +1,19 @@
-#' @title Preprocesses data
+#' @title Conducts the wild bootstrap partial F test for two nested *pffr()* models
 #'
-#' @param grid the grid that the CBs were evaluated over.  eg. 0:200
-#' @return It returns res.wildBS
+#' @param formula.full An object of class *formula*.  The formula for the full model
+#' @param formula.red An object of class *formula*.  The formula for the reuced model
+#' @param data Data frame obtained from the output of *funboot::preprocess_data()*
+#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#' @param B Number of bootstrap samples
+#' @param re Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
+#' @param seed Random seed to be used during the bootstrap resampling (optional).
+#'
+#' @return A list containing the p-value for the F test and the bootstrap distribution of M
 #'
 #' @export
 
 Ftest <- function(formula.full, formula.red,
-                  data, spatial.covars = NULL, B=1000,alpha=.05,re=NULL,seed=NULL){
+                  data, spatial.covars = NULL, B=1000,re=NULL,seed=NULL){
 
   n <- dim(unique(data['patient_id']))[1]
   n.Im <- dim(unique(data['image_number']))[1]

@@ -2,18 +2,22 @@
 % Please edit documentation in R/fit_model.R
 \name{format.spatial.variable}
 \alias{format.spatial.variable}
-\title{format.spatial.variable takes a spatial variable in long format and puts it into matrix format for input into pffr()}
+\title{Takes a spatial variable in long format and puts it into wide format for input into pffr()}
 \usage{
 \method{format}{spatial.variable}(data, spatial.variable, grid, id)
 }
 \arguments{
-\item{sumfun.data}{is}
+\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
 
-\item{covars}{is a vector of model covariate names found in sumfun.data}
+\item{spatial.variable}{The spatial variable to perform the transformation on.  For example, 'outcome' or 'L.obs'}
+
+\item{grid}{The grid on which the spatial summary function is evaluated.  For example, 0:200}
+
+\item{id}{The 'by' variable for the transformation, typically the image ID number.  For example, 'image_id'}
 }
 \value{
-It returns res.wildBS
+A wide-format object compatible with the \strong{data} argument in \emph{pffr()}
 }
 \description{
-format.spatial.variable takes a spatial variable in long format and puts it into matrix format for input into pffr()
+Takes a spatial variable in long format and puts it into wide format for input into pffr()
 }

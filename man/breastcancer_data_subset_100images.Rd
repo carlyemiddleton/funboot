@@ -3,19 +3,24 @@
 \docType{data}
 \name{breastcancer_data_subset_100images}
 \alias{breastcancer_data_subset_100images}
-\title{First five letters of the alphabet}
+\title{Jackson-Fischer Breast Cancer Data Subset}
 \format{
-A data frame with 5 rows and 2 variables:
+A data frame with 285851 rows and 8 variables:
 \describe{
-\item{id}{integer from 1 to 5}
-\item{names}{letter, from A to E}
-...
+\item{patient_id}{Patient ID}
+\item{image_number}{Image Number}
+\item{cell_id}{Cell ID}
+\item{cell_x}{X coordinate of the cell on the image}
+\item{cell_y}{Y coordinate of the cell on the image}
+\item{cell_type}{Cell metacluster number}
+\item{patient_age}{Patient age in years}
+\item{tumor_grade}{Grade of tumor (either 1, 2 or 3)}
 }
 }
 \usage{
 breastcancer_data_subset_100images
 }
 \description{
-A dataset containing first five letters of English alphabet
+Eight variables taken from the 100-image subset of the 2020 \href{https://bodenmillergroup.github.io/imcdatasets/}{Jackson-Fischer breast cancer dataset}, and re-named to follow the input format for \emph{funboot.}  Each row of the data corresponds to one cell.
 }
 \keyword{datasets}
