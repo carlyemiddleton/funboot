@@ -1,10 +1,11 @@
 # FunBoot
 
-Carly Middleton
+Package implementing the proposed method from the manuscript "FunBoot: Pairwise cell type colocalization analysis for multiplex imaging data via functional regression and
+wild bootstrap."  
 
 ## Installation
 
-First, install and load the dependencies:
+First, install and load the dependencies.
 
 ```
 library(spatstat.data)
@@ -17,29 +18,35 @@ library(dplyr)
 library(parallel)
 ```
 
-For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above have interfered with with the pffr() function.
+For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above can interfere with with the pffr() function.
 
-## How to load the example data 
+Once all dependencies are present, install the package:
 
 ```
 library(devtools)
 devtools::install_github('carlyemiddleton/funboot')
 library(funboot)
-data(data_example)
 ```
 
-Vignette things to cover:  
-1. preprocess_data(), and demonstration of the permuted outcome being corrected
-2. make a spaghetti plot function for the summary functions?
-3. make a plot.images() function for color coded cell image plots?
-4. fit_model()
-5. multiplicity adjustment
-6. wildBS_CB() and plot.wildBS_CB()
-7. Ftest() 
+## Example Data
 
+Our package requires input data in the form of an R data.frame containing variables named exactly as: **patient_id**, **image_number**, **cell_id**, **cell_x**, **cell_y**, **cell_type**, and any covariates to be adjusted for.  An example dataset following this format is built into the package:  
 
-Should make a note about the required variable naming format for funboot
+```
+data('breastcancer_data_subset_100images.rda')
+head(breastcancer_data_subset_100images)
+```
 
-Also make a not about pffr() having 2 intercepts and how to calculate them together
+## Package Vignette
 
-make a note that the vignette takes about 20-30minutes to build on a laptop computer with 8 cores and 2.3 GHz processor
+This package contains a vignette, which can be accessed via:
+
+```
+devtools::build_vignettes()
+```
+
+The vignette takes about 30 minutes to build on a laptop computer with 8 cores and a 2.3 GHz processor.  We also included vignette.html in the main directory of this repository, which is already built.  
+
+## Two Intercepts
+
+Note: The function pffr() from the package *refund*, which we use to fit our method's functional regression model, estimates two different intercepts:  one constant intercept, and one radius-varying intercept.  The $\beta_0(r)$ in our manuscript is the sum of these two intercepts, and its confidence band can be estimated via funboot::lin_comb_CB() with argument lin.comb=list().  funboot::wildBS_CB() produces separate confidence bands for each intercept. 
