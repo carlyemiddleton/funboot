@@ -45,7 +45,7 @@ This package contains a vignette, which can be accessed via:
 devtools::build_vignettes()
 ```
 
-The vignette takes about 30 minutes to build on a laptop computer with 8 cores and a 2.3 GHz processor.  We also included vignette.html in the main directory of this repository, which is already built.  
+The vignette takes about 30 minutes to build on a laptop computer with 8 cores and a 2.3 GHz processor. 
 
 ## Two Intercepts
 
