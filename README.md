@@ -8,6 +8,7 @@ wild bootstrap."
 First, install and load the dependencies.
 
 ```
+#Dependencies for the analysis functions
 library(spatstat.data)
 library(spatstat.univar)
 library(spatstat.geom)
@@ -16,6 +17,11 @@ library(spatstat.explore)
 library(refund)
 library(dplyr)
 library(parallel)
+
+#Dependencies for the plotting functions
+library(ggplot2)
+library(patchwork)
+
 ```
 
 For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above can interfere with with the function pffr() from the package *refund*, which we use to fit our method's functional regression model.
@@ -23,7 +29,6 @@ For the spatstat package, it is recommended to load only the above spatstat modu
 Once all dependencies are present, install the package:
 
 ```
-library(devtools)
 devtools::install_github('carlyemiddleton/funboot')
 library(funboot)
 ```
@@ -34,7 +39,6 @@ Our package requires input data in the form of an R data.frame containing variab
 
 ```
 data('breastcancer_data_subset_100images.rda')
-head(breastcancer_data_subset_100images)
 ```
 
 ## Package Vignette
