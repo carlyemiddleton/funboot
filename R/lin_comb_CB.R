@@ -36,7 +36,7 @@ calc.preds <- function(beta_hat, lin.comb){
 #'
 #' @return A list containing the lower and upper bounds of the confidence band, as well as estimated model coefficients from the *pffr()* output and
 #'         additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild boostrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
-#'         'M1' is the bootstrap distribution of M from the outer layer.  'bs.SE' are the bootstrap standard errors for each radius, yielded by the inner layer of resampling
+#'         'M1' is the bootstrap distribution of M from the outer layer.  'bs.sd' are the bootstrap standard deviations for each radius, yielded by the inner layer of resampling
 #' @export
 
 lin_comb_CB <- function(formula,lin.comb=list(), data, spatial.covars = NULL, B1=500, B2=100,
@@ -229,6 +229,6 @@ lin_comb_CB <- function(formula,lin.comb=list(), data, spatial.covars = NULL, B1
   test.stat <- max(abs(preds - 0)/apply(PREDS.BS, 1, sd))
   p.val <- mean(M1>test.stat)
   CBs <- list(CB.lower, CB.upper, grid, preds, apply(PREDS.BS, 1, sd), q, re, M1, test.stat, p.val)
-  names(CBs) <- c('CB.lower','CB.upper', 'grid', 'estimate', 'bs.SE', 'q', 're', 'M1', 'test.stat', 'p.val')
+  names(CBs) <- c('CB.lower','CB.upper', 'grid', 'estimate', 'bs.sd', 'q', 're', 'M1', 'test.stat', 'p.val')
   return(CBs)
 }
