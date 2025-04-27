@@ -18,7 +18,7 @@ library(dplyr)
 library(parallel)
 ```
 
-For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above can interfere with with the pffr() function.
+For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above can interfere with with the function pffr() from the package *refund*, which we use to fit our method's functional regression model.
 
 Once all dependencies are present, install the package:
 
@@ -49,4 +49,4 @@ The vignette takes about 30 minutes to build on a laptop computer with 8 cores a
 
 ## Two Intercepts
 
-Note: The function pffr() from the package *refund*, which we use to fit our method's functional regression model, estimates two different intercepts:  one constant intercept, and one radius-varying intercept.  The $\beta_0(r)$ in our manuscript is the sum of these two intercepts, and its confidence band can be estimated via funboot::lin_comb_CB() with argument lin.comb=list().  funboot::wildBS_CB() produces separate confidence bands for each intercept. 
+Note: pffr() estimates two different intercepts:  one constant intercept, and one radius-varying intercept.  The $\beta_0(r)$ in our manuscript is the sum of these two intercepts, and its confidence band can be estimated via funboot::lin_comb_CB() with argument lin.comb=list().  funboot::wildBS_CB() produces separate confidence bands for each intercept. 
