@@ -15,12 +15,12 @@ knitr::opts_chunk$set(
 )
 ```
 
-In this tutorial, we demonstrate the utilities of our package, *funboot,* for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to a small data subset of imaging mass cytometry breast cancer data.
+In this tutorial, we demonstrate the utilities of our method, *funboot,* for analyzing cell type colocalization in multiplex imaging data.  We apply functions from our package to a data subset of imaging mass cytometry breast cancer data.
 
 **Load package and dependencies**
 
 ```{r setup, error=FALSE, warning=FALSE, message=FALSE}
-devtools::load_all('C:/Users/carly/Documents/funboot') 
+library(funboot) 
 
 #Dependencies for the analysis functions
 library(spatstat.data)
@@ -30,6 +30,7 @@ library(spatstat.random)
 library(spatstat.explore)
 library(refund)
 library(dplyr)
+library(parallel)
 
 #Dependencies for the plotting functions
 library(ggplot2)
@@ -37,31 +38,32 @@ library(patchwork)
 
 ```
 
-**Disclaimer:**  This tutorial simply demonstrates how to user our functions, and we do not claim it to be a full analysis of data by which biological conclusions should be drawn.  We take several shortcuts in this tutorial in order to save computation time for the sake of demonstration (e.g., small number of bootstrap samples, only 10 images worth of data) that should not be used during a full data analysis.
+**Disclaimer:**  The purpose of this tutorial is to demonstrate how to use our functions.  We do not claim the results from this tutorial to be a full data analysis by which reliable biological conclusions should be drawn. Here we use a small number of bootstrap samples in order to save computation time for demonstration purposes, but our manuscript contains the full data analysis.    
 
 ## Breast Cancer Data
 
-First, we will analyze a 10-image subset of the popular [Jackson Fischer breast cancer dataset](https://bodenmillergroup.github.io/imcdatasets/) [@jackson-fischer].  The subset is available within *funboot,* and it contains images 29, 30, 93, 104, 127, 164, 185, 224, 254, and 280 from the original dataset.  We load in the subset below:  
+We analyze the 100-image subset of the popular Jackson-Fischer breast cancer dataset [@jackson-fischer], available in the R package [imcdatasets](https://bodenmillergroup.github.io/imcdatasets/).  The data subset with the relevant variables extracted is available within *funboot.* We load it below:  
 
-```{r fig.width = 7, fig.height = 12}
-data("breastcancer_data_subset_10images")
+```{r }
+data("breastcancer_data_subset_100images")
 ```
 
-Suppose we are interested in cell metaclusters 3 (T cells), 7 (Endothelial cells), 9 (Small circular stromal cells), and 16 (Proliferative epithelial cells).  Let's start by examining the cell distributions in each image, using the **plot_images()** function from *funboot.*
+We are interested in cell metaclusters 3 (T cells), 7 (Endothelial cells), 9 (Small circular stromal cells), and 16 (Proliferative epithelial cells).  Let's start by examining their distributions, using the **plot_images()** function from *funboot.*
 
 ```{r fig.width = 7, fig.height = 12}
 pallete <- c('Other' = "gray", '7' = 'gold', '3' = "darkgreen", '9' = 'skyblue', '16'='cyan4')
-plot.list <- plot_images(data = breastcancer_data_subset_10images, images.to.plot = unique(breastcancer_data_subset_10images$image_number), cell.types.to.plot=c(7,3,9,16), pallete=pallete)
+plot.list <- funboot::plot_images(data = breastcancer_data_subset_100images, images.to.plot = c(13,181,246,362,
+                                                                                       219,244,246,254) #the example images from the manuscript
+                         , cell.types.to.plot=c(7,3,9,16), pallete=pallete)
 
 (plot.list[[1]] + plot.list[[2]])/
 (plot.list[[3]] + plot.list[[4]])/
 (plot.list[[5]] + plot.list[[6]])/
-(plot.list[[7]] + plot.list[[8]])/
-(plot.list[[9]] + plot.list[[10]])
+(plot.list[[7]] + plot.list[[8]])
 
 ```
 
-In the original publication of the breast cancer dataset, cell types 7 and 3 are observed to be colocalized.  We can confirm this observation by fitting the concurrent functional regression model   
+In the original publication, cell types 7 and 3 are observed to be colocalized.  We confirm this observation by fitting the concurrent functional regression model   
 
 $$
 \hat{L}_{iEndo,T}(r) - r = \beta_0(r) + \epsilon_i(r)
@@ -70,63 +72,110 @@ $$
 and performing inference on the intercept $\beta_0(r)$.  The first step is to preprocess the raw data and calculate the appropriate spatial summary function, applying the necessary permutation adjustment and quality control cell count cutoff [@wilson; @spaceanova].  This can be carried out using our function **preprocess_data():**
 
 
-```{r }
-sumfun.data <- preprocess_data(data=breastcancer_data_subset_10images, from.cell=7, to.cell=3,
+```{r results='hide'}
+sumfun.data <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=7, to.cell=3,
                                qc.cellcount.cutoff=20, P=50, perm.yn=T,
-                               R=200, inc=1, image.dims=c(0,1000,0,1000),
+                               R=500, inc=1, image.dims=c(0,1000,0,1000),
                                summary.function='L',seed=456)
 
 ```
-We fit the model using our function **fit_model()**, and examine the output:
+
+We fit the model and examine the output:
 
 ```{r }
-model <- fit_model(formula=outcome ~ 1, data=sumfun.data)
+model <- funboot::fit_model(formula=outcome ~ 1, data=sumfun.data)
 summary(model)
 
 ```
-Both the constant intercept and smooth intercept from the output are positive; this is indicative of cell type interaction.  We calculate the wild bootstrap confidence band of both intercepts using **wildBS_CB()** and **plot.wildBS_CB(),** overlaying their respective pointwise confidence intervals.  
 
-```{r fig.width = 6, fig.height = 3}
-CBs <- wildBS_CB(formula=outcome ~ 1, data=sumfun.data,re='patient_id',
-                 B=10,alpha=.05,seed=456)
+Both the constant intercept and smooth intercept from the **pffr()** output are positive; this is indicative of cell type interaction.  We calculate and plot the wild bootstrap confidence band of the sum of both intercepts using **lin_comb_CB()** and **plot_lin_comb_CB().**
+
+```{r fig.width = 7, fig.height = 3}
+CBs <- funboot::lin_comb_CB(formula=outcome ~ 1, lin.comb=list(), 
+                   data=sumfun.data, spatial.covars = NULL,
+                   B1=10,B2=10,alpha=.05,re=NULL,seed=456,n_cores=NULL)
 #Plot CBs
-plot.wildBS_CB(CBs)
+funboot::plot_lin_comb_CB(CBs)
 
 ```
 
-Because neither confidence band crosses zero, the conclusion from this demonstration would be that the interaction is not significant. (However, note that the full dataset and many more bootstrap samples are needed for accurate results.) 
+Because the confidence band crosses zero, the conclusion from this demonstration would be that a significant amount of cell type interaction is present. (However, many more bootstrap samples are needed for accurate results.) We repeat the above for metaclusters 9 and 16, observing significant cell type avoidance:
 
-We can perform multiplicity-adjusted pointwise tests of each model coefficient at specific radii of interest (say we are interested in radii 50 and 100), using **pointwise_test().**  The output of this function gives the adjusted p-values of the tests, and the lower bound and upper bound of the pointwise confidence interval for each test. 
-
-```{r }
-p <- pointwise_test(data=sumfun.data, formula = outcome ~ 1, r.star = c(50,100),
-                    re=c('patient_id'), alpha=.05, method = c('bonferroni'))
-p
-
-```
-
-The last function we demonstrate here is **Ftest().**  Suppose we wish to test the significance of patient age and $\hat{L}_{Endo,TM}(r)$ (the L curve of T cells or macrophages around endothelial cells) simultaneously as predictors of $\hat{L}_{Endo,Pro}(r) - r$. We can run the wild bootstrap F test to jointly test these two covariates.
-
-```{r }
-spatialcov.data <- preprocess_data(data=breastcancer_data_subset_10images, from.cell=7, to.cell=16,
+```{r results='hide'}
+sumfun.data.9.16 <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=9, to.cell=16,
                                qc.cellcount.cutoff=20, P=50, perm.yn=T,
                                R=200, inc=1, image.dims=c(0,1000,0,1000),
                                summary.function='L',seed=456)
-names(spatialcov.data)[names(spatialcov.data)=='L.obs'] <- 'spatial.cov'
-spatialcov.data$L.expect <- spatialcov.data$L.pmean <- spatialcov.data$outcome <- NULL
-sumfun.data.full <- merge(sumfun.data, spatialcov.data, by=c('image_number','r','patient_id','patient_age','tumor_grade'),all=T) 
-sumfun.data.full$spatial.cov <- ifelse(is.na(sumfun.data.full$spatial.cov), 0, sumfun.data.full$spatial.cov)
+```
 
-formula.full <- outcome ~ patient_age + spatial.cov 
-formula.red <- outcome ~ 1 
+```{r fig.width = 7, fig.height = 3}
+model.9.16 <- funboot::fit_model(formula=outcome ~ 1, data=sumfun.data.9.16)
+summary(model.9.16)
 
-F.p.value <- Ftest(formula.full=formula.full, formula.red=formula.red,
-                  data=sumfun.data.full, spatial.covars = c('spatial.cov'),
-                  B=10,alpha=.05,seed=456)
-F.p.value
+CBs.9.16 <- funboot::lin_comb_CB(formula=outcome ~ 1, lin.comb=list(), 
+                   data=sumfun.data.9.16, spatial.covars = NULL,
+                   B1=10,B2=10,alpha=.05,re=NULL,seed=456,n_cores=NULL)
+#Plot CBs
+funboot::plot_lin_comb_CB(CBs.9.16)
 
 ```
-On this small data subset with only 10 bootstrap samples, the joint test is highly significant.
+
+We next consider the model
+
+$$
+\widehat{L}_{i Endo, Pro}(r) - r =  \beta_0(r) + \beta_1(r)x_{iage} + \beta_2(r)x_{igrade2} + \beta_3(r)x_{igrade3} + \beta_4(r)\widehat{L}_{iEndo,TM}(r) + \epsilon_i(r)
+$$
+Below is the procedure for calculating the necessary summary functions for this model.  We first calculate  $\widehat{L}_{i Endo, Pro}(r)$ by specifying metacluster 7 as the ``from" cell type and metacluster 16 as the ``to" cell type.  We consider metaclusters 3,4,5, and 6 to be T cells or macrophages, and calculate $\widehat{L}_{iEndo,TM}(r)$.  We then need to merge the two summary function datasets together. 
+
+
+```{r  , results='hide'}
+sumfun.data <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=7, to.cell=16,
+                                   qc.cellcount.cutoff=20, P=50, perm.yn=T,
+                                   R=500, inc=1, image.dims=c(0,1000,0,1000), #use R=500 so that we can plot the L curves as they return to 0
+                                   summary.function='L',seed=NULL)
+control.cells <- c(3:6)
+breastcancer_data_subset_100images$cell_type <- ifelse(breastcancer_data_subset_100images$cell_type
+                                                  %in% control.cells, 3, breastcancer_data_subset_100images$cell_type) #combine the control cells into 1 type
+spatialcov.data <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=7, to.cell=3,
+                               qc.cellcount.cutoff=20, P=50, perm.yn=T,
+                               R=500, inc=1, image.dims=c(0,1000,0,1000),
+                               summary.function='L',seed=NULL)
+names(spatialcov.data)[names(spatialcov.data)=='L.obs'] <- 'spatial.cov'
+spatialcov.data$L.expect <- spatialcov.data$L.pmean <- spatialcov.data$outcome <- NULL
+sumfun.data.full <- merge(sumfun.data, spatialcov.data, by=c('image_number','r','patient_id','patient_age','tumor_grade'),all=T)
+df <- data.frame(image_number = rep(unique(breastcancer_data_subset_100images$image_number), each=501),
+                 r = rep(0:500, length(unique(breastcancer_data_subset_100images$image_number))) )
+sumfun.data.full <- merge(df, sumfun.data.full, by=c('image_number','r'),all=T)
+sumfun.data.full <- sumfun.data.full[!is.na(sumfun.data.full$outcome),] #Drop obs. with missing outcomes
+sumfun.data.full$spatial.cov <- ifelse(is.na(sumfun.data.full$spatial.cov), 0, sumfun.data.full$spatial.cov) #K function = 0 when there are no j cells
+```
+
+Next, we are ready to calculate and plot wild bootstrap confidence bands for each coefficient function:
+
+```{r  fig.width = 7, fig.height = 3, results='hide'}
+##Wild BS CB
+sumfun.data.full$grade2 <- ifelse(sumfun.data.full$tumor_grade == '2', 1,
+                       ifelse(is.na(sumfun.data.full$tumor_grade), NA, 0))
+sumfun.data.full$grade3 <- ifelse(sumfun.data.full$tumor_grade == '3', 1,
+                                  ifelse(is.na(sumfun.data.full$tumor_grade), NA, 0))
+CBs <- funboot::wildBS_CB(formula=outcome ~ patient_age + grade2 + grade3 + spatial.cov,
+                   data=sumfun.data.full,spatial.covars = 'spatial.cov',B=10,alpha=.05,seed=NULL)
+
+funboot::plot_wildBS_CB(CBs)
+```
+
+Using **Ftest()**, we can jointly test the two indicator variables for tumor grade and return the p-value for the test.
+
+```{r  results='hide'}
+##Wild BS Partial F test
+out <- funboot::Ftest(formula.full = outcome ~ patient_age + grade2 + grade3 + spatial.cov, 
+                      formula.red = outcome ~ patient_age + spatial.cov,
+                      data = sumfun.data.full, spatial.covars = 'spatial.cov', B=10,seed=456)
+```
+
+```{r  }
+out$p.value
+```
 
 
 ## References

@@ -39,3 +39,7 @@ Vignette things to cover:
 
 
 Should make a note about the required variable naming format for funboot
+
+Also make a not about pffr() having 2 intercepts and how to calculate them together
+
+make a note that the vignette takes about 20-30minutes to build on a laptop computer with 8 cores and 2.3 GHz processor
