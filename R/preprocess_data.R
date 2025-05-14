@@ -45,14 +45,14 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
         if(summary.function=='L'){permuted.L <- NULL}
         if(summary.function=='g'){permuted.g <- NULL}
         for(p in 1:P){
-          ppp <- ppp(x = qc.data$cell_x, y = qc.data$cell_y,
+          ppp <- spatstat.geom::ppp(x = qc.data$cell_x, y = qc.data$cell_y,
                      marks = factor(sample(qc.data[['cell_type']],
                                            size=length(qc.data[['cell_type']]), replace = F)), window = W)
-          Kdata.temp <- data.frame(Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ), image=i)
+          Kdata.temp <- data.frame(spatstat.explore::Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ), image=i)
           permuted.K <- cbind(permuted.K, Kdata.temp$iso)
           if(summary.function=='L'){permuted.L <- sqrt(permuted.K/pi)}
           if(summary.function=='g'){
-            gdata.temp <- data.frame(pcf(Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ),
+            gdata.temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ),
                                          method='c', divisor ="d"), image=i)
             permuted.g <- cbind(permuted.g, gdata.temp$pcf)
           }
@@ -66,9 +66,9 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
         }
         print(paste0('permuted outcome for image ',i,' calculated'))
       }
-      ppp <- ppp(x = qc.data$cell_x, y = qc.data$cell_y,
+      ppp <- spatstat.geom::ppp(x = qc.data$cell_x, y = qc.data$cell_y,
                  marks = factor(qc.data[['cell_type']]), window = W)
-      Kdata.temp <- data.frame(Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ), image=i)
+      Kdata.temp <- data.frame(spatstat.explore::Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ), image=i)
       names(Kdata.temp) <- c('r','K.expect','K.obs','image_number')
       Kdata <- rbind(Kdata, Kdata.temp)
       if(summary.function=='L'){
@@ -78,7 +78,7 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
         names(Ldata) <- c('r','L.expect','L.obs','image_number')
       }
       if(summary.function=='g'){
-        gdata.temp <- data.frame(pcf(Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ),
+        gdata.temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from.cell, j = to.cell, correction='Ripley', r=seq(0,R,by=inc) ),
                                      method='c', divisor ="d"), image=i)
         names(gdata.temp) <- c('r','g.expect','g.obs','image_number')
         gdata <- rbind(gdata, gdata.temp)

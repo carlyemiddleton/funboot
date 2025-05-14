@@ -12,7 +12,7 @@
 #'
 #' @export
 
-wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=NULL,seed=NULL){
+wildBS_CB <- function(formula, data, spatial.covars = NULL, B=500,alpha=.05,re=NULL,seed=NULL){
   if(!is.null(seed)){set.seed(seed)}
   n <- dim(unique(data['patient_id']))[1]
   n.Im <- dim(unique(data['image_number']))[1]
@@ -44,11 +44,11 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=
   ## Wild bootstrap #
   ###################
 
-  ##Step B1
+  ##Extract the coefficient function estimates from pffr() and put them into a dataset called beta_hat
   beta0_hat_constant <- rep(summary(pffrmodel)$p.coeff, length(grid))
   invisible(capture.output(beta0_hat <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$value))
-  beta_hat <- data.frame(beta0_hat_constant = beta0_hat_constant,
-                         beta0_hat = beta0_hat)
+  beta_hat <- data.frame(beta0_hat_constant = beta0_hat_constant,               #the constant intercept from the pffr() output
+                         beta0_hat = beta0_hat)                                 #the functional intercept from the pffr() output
   if(length(attr(terms(formula), "term.labels")) != 0){
     for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
       invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
@@ -66,15 +66,15 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=
     }
 
   }
-  e <- function(i){outcome[i,] - predict(pffrmodel)[i,]}
-  ##Step B2.1
+  e <- function(i){outcome[i,] - predict(pffrmodel)[i,]} #the error terms
+  ##Define bootstrap multipliers
   c <- matrix(NA, nrow=n.Im, ncol=B)
   for(b in 1:B){
     for(i in 1:n.Im){
       c[i,b] <- ifelse(rbinom(1, size=1, prob=.5) == 1, 1, -1)
     }
   }
-  ##Step B2.2
+  ##Do the bootstrap resampling, and save the sampling distribution of M
   if(is.null(re)){
     M <- matrix(NA, ncol=(c(length(names(coef(pffrmodel,n1=length(grid))$smterms)))+1), nrow=B)
   }else{
@@ -94,7 +94,7 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=
     pffr.data.bs$Y.mat.bs <- Y.mat.bs
     formula.bs <- update.formula(formula, as.formula('Y.mat.bs ~ .'))
     model.bs <- refund:::pffr(formula=formula.bs , data=pffr.data.bs, yind=grid)
-    #retrieve the coefficient estimates from the pffr() output
+    #retrieve the coefficient estimates from the pffr() output and put them into a dataset called beta_hat.bs
     beta0_hat_constant.bs <- rep(summary(model.bs)$p.coeff, length(grid))
     invisible(capture.output(beta0_hat.bs <- coef(model.bs,n1=length(grid))$smterms$`Intercept(grid)`$coef$value))
     beta_hat.bs <- data.frame(beta0_hat_constant = beta0_hat_constant.bs,
@@ -136,10 +136,10 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=1000,alpha=.05,re=
                                                                                                                              !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
       }
     }
-    M[b,] <- apply(abs((beta_hat.bs - beta_hat)/beta_hat.se.bs), 2, max)
+    M[b,] <- apply(abs((beta_hat.bs - beta_hat)/beta_hat.se.bs), 2, max) #save the bth M
     print(paste0('completed bootstrap sample ',b))
   }
-  #retrieve the SEs from the pffr() output
+  #retrieve the SEs from the original pffr() output (not bootstrapped)
   beta0_hat_constant.se <- rep(summary(pffrmodel)$p.table[2], length(grid))
   invisible(capture.output(beta0_hat.se <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$se))
   beta_hat.se <- data.frame(beta0_hat_constant = beta0_hat_constant.se,

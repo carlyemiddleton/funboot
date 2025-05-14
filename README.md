@@ -1,5 +1,7 @@
 # FunBoot
 
+<img src="man/figures/logo.png" align="right" height="139" alt="" />
+
 Package implementing the proposed method from the manuscript "FunBoot: Pairwise cell type colocalization analysis for multiplex imaging data via functional regression and
 wild bootstrap."  
 
