@@ -8,20 +8,25 @@
 #' @export
 
 plot_wildBS_CB <- function(CB.object, alpha=.05){
-
+  covar.names <- substr(names(CB.object$CB.lower),10,nchar(names(CB.object$CB.lower)))
+  covar.names[1:2] <- ''
   for(i in 1:dim(CB.object$CB.lower)[2]){
-    print(ggplot() + theme_bw() +
+    print(
+      ggplot() + theme_bw() +
             geom_line(aes(x=CB.object$grid,y=CB.object[[4]][,i], col='Estimate')) +
-            geom_line(aes(x=CB.object$grid,y=CB.object[[4]][,i]- qnorm(1-alpha/2)*CB.object[[5]][,i], col='Pointwise CI (unadjusted)')) +
-            geom_line(aes(x=CB.object$grid,y=CB.object[[4]][,i]+ qnorm(1-alpha/2)*CB.object[[5]][,i], col='Pointwise CI (unadjusted)')) +
             geom_line(aes(x=CB.object$grid,y=CB.object[[1]][,i], col='Wild Bootstrap CB')) +
             geom_line(aes(x=CB.object$grid,y=CB.object[[2]][,i], col='Wild Bootstrap CB')) +
-            labs(x='r', y='coefficient', col=' ') + theme(axis.title.y = element_text(size = 20),
+            labs(x='r',
+                 y=ifelse(names(CB.object$CB.lower)[i]=="beta0_hat_constant", expression(beta[0]),
+                          ifelse(names(CB.object$CB.lower)[i]=="beta0_hat", expression(beta[0](r)),
+                                 expression(beta(r))
+                                 )
+                          ),
+                 col=' ') + theme(axis.title.y = element_text(size = 20),
                                                           axis.title.x = element_text(size = 20)) +
-            geom_hline(yintercept=0, lty=2) + ggtitle(paste0(names(CB.object$CB.lower)[i]))  +
+            geom_hline(yintercept=0, lty=2) + ggtitle(paste0(covar.names[i]))+
             scale_color_manual(values = c("Estimate" = '#F8766D',
-                                          "Pointwise CI (unadjusted)"='#00BFC4',
-                                          "Wild Bootstrap CB"='#00BA38'))  )
+                                          "Wild Bootstrap CB"='#00BA38'))
+      )
   }
 }
-

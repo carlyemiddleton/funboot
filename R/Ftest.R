@@ -1,19 +1,24 @@
-#' @title Conducts the wild bootstrap partial F test for two nested *pffr()* models
+#' @title Conducts a wild bootstrap partial F test for two nested *pffr()* models
 #'
-#' @param formula.full An object of class *formula*.  The formula for the full model
-#' @param formula.red An object of class *formula*.  The formula for the reuced model
+#' @param formula.full An object of class *formula*.  The formula for the full model with special terms as in mgcv's GAM
+#' @param formula.red An object of class *formula*.  The formula for the reduced model with special terms as in mgcv's GAM
 #' @param data Data frame obtained from the output of *funboot::preprocess_data()*
-#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#' @param spatial.covars Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')
 #' @param B Number of bootstrap samples
 #' @param re Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
 #' @param seed Random seed to be used during the bootstrap resampling (optional).
 #'
-#' @return A list containing the p-value for the F test and the bootstrap distribution of M
+#' @return A list containing the p-value from the F test and the bootstrap distribution of M
 #'
 #' @export
 
-Ftest <- function(formula.full, formula.red,
-                  data, spatial.covars = NULL, B=1000,re=NULL,seed=NULL){
+Ftest <- function(formula.full,
+                  formula.red,
+                  data,
+                  spatial.covars = NULL,
+                  B=500,
+                  re=NULL,
+                  seed=NULL){
 
   n <- dim(unique(data['patient_id']))[1]
   n.Im <- dim(unique(data['image_number']))[1]
@@ -38,32 +43,29 @@ Ftest <- function(formula.full, formula.red,
   }
 
   pffr.data <- as.data.frame(pffr.data)
-  ##calculate the observed F
+  ##calculate the observed F statistic
   model.full <- refund:::pffr(formula=formula.full, data=pffr.data, yind=grid)
   model.red <- refund:::pffr(formula=formula.red, data=pffr.data, yind=grid)
   rss.full <- apply((pffr.data$outcome - predict(model.full))^2, 2, sum)
   rss.red <- apply((pffr.data$outcome - predict(model.red))^2, 2, sum)
-  (F.test <- sum((rss.red-rss.full)/(length(attr(terms(formula.full), "term.labels"))-
-                                       length(attr(terms(formula.red), "term.labels")))/
-                   (rss.full/(n.Im-length(attr(terms(formula.full), "term.labels")))) ) )
+  F.test <- sum( (rss.red-rss.full)/(length(attr(terms(formula.full), "term.labels"))-length(attr(terms(formula.red), "term.labels"))) /
+                 (rss.full/(n.Im-length(attr(terms(formula.full), "term.labels"))))
+                )
 
-  ##########################
-  ## Wild bootstrap F test #
-  ##########################
   e <- function(i){pffr.data$outcome[i,] - predict(model.red)[i,] }
-  ##Step B2.1
+  ##Define bootstrap multipliers
   c <- matrix(NA, nrow=n.Im, ncol=B)
   for(b in 1:B){
     for(i in 1:n.Im){
       c[i,b] <- ifelse(rbinom(1, size=1, prob=.5) == 1, 1, -1)
     }
   }
-  ##Step B2.2
+  ##Set up M and do the bootstrapping
   M <- rep(NA, B)
   for(b in 1:B){
     Y.bs <- matrix(NA, nrow=n.Im, ncol=length(grid))
     for(i in 1:n.Im){
-      Y.bs[i,] <- predict(model.red)[i,] + c[i,b]*e(i) #resample from the null assumption model
+      Y.bs[i,] <- predict(model.red)[i,] + c[i,b]*e(i) #Resampling assuming the null model
     }
     data.bs <- data.frame(grid = grid)
     for(i in 1:n.Im){

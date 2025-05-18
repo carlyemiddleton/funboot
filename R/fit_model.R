@@ -20,13 +20,13 @@ format.spatial.variable <- function(data, spatial.variable, grid, id){
 
 
 
-#' @title Fits a the *pffr()* model to spatial summary function data
+#' @title Fits a *pffr()* model to spatial summary function data
 #'
-#' @param formula An object of class *formula*.  The formula for the *pffr()* model
+#' @param formula An object of class *formula*.  The formula for the *pffr()* model with special terms as in mgcv's GAM
 #' @param data Data frame obtained from the output of *funboot::preprocess_data()*
-#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#' @param spatial.covars Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')
 #'
-#' @return A *pffr()* model object.  See *refund::pffr()*
+#' @return A *pffr()* model object
 #'
 #' @export
 

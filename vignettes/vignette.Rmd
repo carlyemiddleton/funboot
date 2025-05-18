@@ -20,6 +20,7 @@ In this tutorial, we demonstrate the utilities of our method, *funboot,* for ana
 **Load package and dependencies**
 
 ```{r setup, error=FALSE, warning=FALSE, message=FALSE}
+devtools::install_github('carlyemiddleton/funboot')
 library(funboot) 
 
 #Dependencies for the analysis functions
@@ -72,7 +73,7 @@ $$
 and performing inference on the intercept $\beta_0(r)$.  The first step is to preprocess the raw data and calculate the appropriate spatial summary function, applying the necessary permutation adjustment and quality control cell count cutoff [@wilson; @spaceanova].  This can be carried out using our function **preprocess_data():**
 
 
-```{r results='hide'}
+```{r results='hide', eval=F}
 sumfun.data <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=7, to.cell=3,
                                qc.cellcount.cutoff=20, P=50, perm.yn=T,
                                R=500, inc=1, image.dims=c(0,1000,0,1000),
@@ -82,7 +83,7 @@ sumfun.data <- funboot::preprocess_data(data=breastcancer_data_subset_100images,
 
 We fit the model and examine the output:
 
-```{r }
+```{r eval=F}
 model <- funboot::fit_model(formula=outcome ~ 1, data=sumfun.data)
 summary(model)
 
@@ -90,7 +91,7 @@ summary(model)
 
 Both the constant intercept and smooth intercept from the **pffr()** output are positive; this is indicative of cell type interaction.  We calculate and plot the wild bootstrap confidence band of the sum of both intercepts using **lin_comb_CB()** and **plot_lin_comb_CB().**
 
-```{r fig.width = 7, fig.height = 3}
+```{r fig.width = 7, fig.height = 3, eval=F}
 CBs <- funboot::lin_comb_CB(formula=outcome ~ 1, lin.comb=list(), 
                    data=sumfun.data, spatial.covars = NULL,
                    B1=10,B2=10,alpha=.05,re=NULL,seed=456,n_cores=NULL)
@@ -101,14 +102,14 @@ funboot::plot_lin_comb_CB(CBs)
 
 Because the confidence band crosses zero, the conclusion from this demonstration would be that a significant amount of cell type interaction is present. (However, many more bootstrap samples are needed for accurate results.) We repeat the above for metaclusters 9 and 16, observing significant cell type avoidance:
 
-```{r results='hide'}
+```{r results='hide', eval=F}
 sumfun.data.9.16 <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=9, to.cell=16,
                                qc.cellcount.cutoff=20, P=50, perm.yn=T,
                                R=200, inc=1, image.dims=c(0,1000,0,1000),
                                summary.function='L',seed=456)
 ```
 
-```{r fig.width = 7, fig.height = 3}
+```{r fig.width = 7, fig.height = 3, eval=F}
 model.9.16 <- funboot::fit_model(formula=outcome ~ 1, data=sumfun.data.9.16)
 summary(model.9.16)
 
@@ -128,7 +129,7 @@ $$
 Below is the procedure for calculating the necessary summary functions for this model.  We first calculate  $\widehat{L}_{i Endo, Pro}(r)$ by specifying metacluster 7 as the ``from" cell type and metacluster 16 as the ``to" cell type.  We consider metaclusters 3,4,5, and 6 to be T cells or macrophages, and calculate $\widehat{L}_{iEndo,TM}(r)$.  We then need to merge the two summary function datasets together. 
 
 
-```{r  , results='hide'}
+```{r  , eval=F, results='hide'}
 sumfun.data <- funboot::preprocess_data(data=breastcancer_data_subset_100images, from.cell=7, to.cell=16,
                                    qc.cellcount.cutoff=20, P=50, perm.yn=T,
                                    R=500, inc=1, image.dims=c(0,1000,0,1000), #use R=500 so that we can plot the L curves as they return to 0
@@ -152,7 +153,7 @@ sumfun.data.full$spatial.cov <- ifelse(is.na(sumfun.data.full$spatial.cov), 0, s
 
 Next, we are ready to calculate and plot wild bootstrap confidence bands for each coefficient function:
 
-```{r  fig.width = 7, fig.height = 3, results='hide'}
+```{r  eval=F, fig.width = 7, fig.height = 3, results='hide'}
 ##Wild BS CB
 sumfun.data.full$grade2 <- ifelse(sumfun.data.full$tumor_grade == '2', 1,
                        ifelse(is.na(sumfun.data.full$tumor_grade), NA, 0))
@@ -166,14 +167,14 @@ funboot::plot_wildBS_CB(CBs)
 
 Using **Ftest()**, we can jointly test the two indicator variables for tumor grade and return the p-value for the test.
 
-```{r  results='hide'}
+```{r  eval=F, results='hide'}
 ##Wild BS Partial F test
 out <- funboot::Ftest(formula.full = outcome ~ patient_age + grade2 + grade3 + spatial.cov, 
                       formula.red = outcome ~ patient_age + spatial.cov,
                       data = sumfun.data.full, spatial.covars = 'spatial.cov', B=10,seed=456)
 ```
 
-```{r  }
+```{r  eval=F}
 out$p.value
 ```
 

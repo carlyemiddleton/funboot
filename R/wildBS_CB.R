@@ -1,18 +1,18 @@
 #' @title Calculates wild bootstrap confidence bands for *pffr()* model coefficients
 #'
-#' @param formula An object of class *formula*.  The formula for the *pffr()* model
+#' @param formula An object of class *formula*.  The formula for the *pffr()* model with special terms as in mgcv's GAM
 #' @param data Data frame obtained from the output of *funboot::preprocess_data()*
-#' @param spatial.covars Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')
+#' @param spatial.covars Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')
 #' @param B Number of bootstrap samples
 #' @param alpha Desired significance level for the confidence band. For example, 0.05
 #' @param re Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
 #' @param seed Random seed to be used during the bootstrap resampling (optional).
 #'
-#' @return A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard erorrs from the *pffr()* output and additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild boostrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
+#' @return A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard errors from the *pffr()* output and additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild bootstrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
 #'
 #' @export
 
-wildBS_CB <- function(formula, data, spatial.covars = NULL, B=500,alpha=.05,re=NULL,seed=NULL){
+wildBS_CB <- function(formula, data, spatial.covars = NULL, B=500, alpha=.05, re=NULL, seed=NULL){
   if(!is.null(seed)){set.seed(seed)}
   n <- dim(unique(data['patient_id']))[1]
   n.Im <- dim(unique(data['image_number']))[1]
@@ -40,31 +40,41 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=500,alpha=.05,re=N
   #Fit the functional regression model
   pffrmodel <- refund:::pffr(formula=formula, data=pffr.data, yind=grid)
 
-  ###################
-  ## Wild bootstrap #
-  ###################
-
-  ##Extract the coefficient function estimates from pffr() and put them into a dataset called beta_hat
-  beta0_hat_constant <- rep(summary(pffrmodel)$p.coeff, length(grid))
-  invisible(capture.output(beta0_hat <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$value))
-  beta_hat <- data.frame(beta0_hat_constant = beta0_hat_constant,               #the constant intercept from the pffr() output
-                         beta0_hat = beta0_hat)                                 #the functional intercept from the pffr() output
+  ##Create beta_hat, a matrix containing the estimates of the fixed effect coefficient functions.
+  #Start with the constant and functional intercepts
+  beta0_hat_constant <- rep(summary(pffrmodel)$p.coeff, length(grid)) #constant intercept
+  invisible(capture.output(beta0_hat <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$value)) #functional intercept
+  beta_hat <- data.frame(beta0_hat_constant = beta0_hat_constant,
+                         beta0_hat = beta0_hat)
   if(length(attr(terms(formula), "term.labels")) != 0){
-    for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
+    invisible(capture.output(var.names <- names(coef(pffrmodel,n1=length(grid))$smterms[-1])))
+    for(i in var.names){
       invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
         which(names(coef(pffrmodel,n1=length(grid))$smterms) == i )]))
       assign(paste0('beta_hat_',i),
              list[[1]]$coef$value)
     }
-    if(is.null(re)){
-      beta_hat <- cbind(beta_hat, do.call('cbind', mget(paste0('beta_hat_',
-                                                               names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))  ))
-    }else{
-      beta_hat <- cbind(beta_hat, do.call('cbind', mget(paste0('beta_hat_',
-                                                               names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) &
-                                                                                                                !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
+    if(is.null(re)){ #Add on the betas for the functional covariate(s)
+      invisible(capture.output(
+        beta_hat <- cbind(beta_hat, do.call('cbind', mget(paste0('beta_hat_',
+                                                                 names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ] #not the intercept
+                                                                 )
+                                                          )
+                                            )
+                          )
+      ))
+    }else if(sum(!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) & !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) )!=0){
+      #Add on the betas for the functional covariate(s), not including the beta(s) for the functional random intercept(s)
+      invisible(capture.output(
+        beta_hat <- cbind(beta_hat, do.call('cbind', mget(paste0('beta_hat_',
+                                                                 names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) & #not the random intercept(s)
+                                                                                                                  !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ] #not the intercept
+                                                                 )
+                                                          )
+                                            )
+                          )
+      ))
     }
-
   }
   e <- function(i){outcome[i,] - predict(pffrmodel)[i,]} #the error terms
   ##Define bootstrap multipliers
@@ -74,12 +84,12 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=500,alpha=.05,re=N
       c[i,b] <- ifelse(rbinom(1, size=1, prob=.5) == 1, 1, -1)
     }
   }
-  ##Do the bootstrap resampling, and save the sampling distribution of M
+  ##Set up M and do the bootstrapping
   if(is.null(re)){
     M <- matrix(NA, ncol=(c(length(names(coef(pffrmodel,n1=length(grid))$smterms)))+1), nrow=B)
-  }else{
-    M <- matrix(NA, ncol=c(sum(!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)))+1), nrow=B)
-  }
+    }else{
+      M <- matrix(NA, ncol=c(sum(!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)))+1), nrow=B)
+      }
   for(b in 1:B){
     Y.bs <- matrix(NA, nrow=n.Im, ncol=length(grid))
     for(i in 1:n.Im){
@@ -94,70 +104,113 @@ wildBS_CB <- function(formula, data, spatial.covars = NULL, B=500,alpha=.05,re=N
     pffr.data.bs$Y.mat.bs <- Y.mat.bs
     formula.bs <- update.formula(formula, as.formula('Y.mat.bs ~ .'))
     model.bs <- refund:::pffr(formula=formula.bs , data=pffr.data.bs, yind=grid)
-    #retrieve the coefficient estimates from the pffr() output and put them into a dataset called beta_hat.bs
+    #Retrieve the coefficient estimates from the pffr() output
     beta0_hat_constant.bs <- rep(summary(model.bs)$p.coeff, length(grid))
     invisible(capture.output(beta0_hat.bs <- coef(model.bs,n1=length(grid))$smterms$`Intercept(grid)`$coef$value))
     beta_hat.bs <- data.frame(beta0_hat_constant = beta0_hat_constant.bs,
                               beta0_hat = beta0_hat.bs)
     if(length(attr(terms(formula), "term.labels")) != 0){
-      for(i in names(coef(model.bs,n1=length(grid))$smterms[-1])){
+      invisible(capture.output(var.names <- names(coef(pffrmodel,n1=length(grid))$smterms[-1])))
+      for(i in var.names){
         invisible(capture.output(list <- coef(model.bs,n1=length(grid))$smterms[
           which(names(coef(model.bs,n1=length(grid))$smterms) == i )]))
         assign(paste0('beta_hat_',i),
                list[[1]]$coef$value)
       }
-      if(is.null(re)){
-        beta_hat.bs <- cbind(beta_hat.bs, do.call('cbind', mget(paste0('beta_hat_',
-                                                                       names(coef(model.bs,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
-      }else{
-        beta_hat.bs <- cbind(beta_hat.bs, do.call('cbind', mget(paste0('beta_hat_',
-                                                                       names(coef(model.bs,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) &
-                                                                                                                       !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
+      if(is.null(re)){ #Add on the betas for the functional covariate(s)
+        invisible(capture.output(
+          beta_hat.bs <- cbind(beta_hat.bs, do.call('cbind', mget(paste0('beta_hat_',
+                                                                   names(coef(model.bs,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ] #not the intercept
+                                                                         )
+                                                                  )
+                                                   )
+                               )
+        ))
+      }else if(sum(!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) & !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) )!=0){
+        #Add on the betas for the functional covariate(s), not including the beta(s) for the functional random intercept(s)
+        invisible(capture.output(
+          beta_hat.bs <- cbind(beta_hat.bs, do.call('cbind', mget(paste0('beta_hat_',
+                                                                   names(coef(model.bs,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) & #not the random intercept(s)
+                                                                                                                    !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ] #not the intercept
+                                                                   )
+                                                            )
+                                               )
+                            )
+        ))
       }
     }
-    #retrieve the SEs from the pffr() output
+    #retrieve the SEs
     beta0_hat_constant.se.bs <- rep(summary(model.bs)$p.table[2], length(grid))
     invisible(capture.output(beta0_hat.se.bs <- coef(model.bs,n1=length(grid))$smterms$`Intercept(grid)`$coef$se))
     beta_hat.se.bs <- data.frame(beta0_hat_constant = beta0_hat_constant.se.bs,
                                  beta0_hat = beta0_hat.se.bs)
     if(length(attr(terms(formula), "term.labels")) != 0){
-      for(i in names(coef(model.bs,n1=length(grid))$smterms[-1])){
+      invisible(capture.output(var.names <- names(coef(pffrmodel,n1=length(grid))$smterms[-1])))
+      for(i in var.names){
         invisible(capture.output(list <- coef(model.bs,n1=length(grid))$smterms[
           which(names(coef(model.bs,n1=length(grid))$smterms) == i )]))
         assign(paste0('beta_hat_',i),
                list[[1]]$coef$se)
       }
-      if(is.null(re)){
-        beta_hat.se.bs <- cbind(beta_hat.se.bs, do.call('cbind', mget(paste0('beta_hat_',
-                                                                             names(coef(model.bs,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
-      }else{
-        beta_hat.se.bs <- cbind(beta_hat.se.bs, do.call('cbind', mget(paste0('beta_hat_',
-                                                                             names(coef(model.bs,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) &
-                                                                                                                             !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ]  ))))
+      if(is.null(re)){ #Add on the betas for the functional covariate(s)
+        invisible(capture.output(
+          beta_hat.se.bs <- cbind(beta_hat.se.bs, do.call('cbind', mget(paste0('beta_hat_',
+                                                                         names(coef(model.bs,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ] #not the intercept
+                                                                               )
+                                                                        )
+                                                          )
+                                  )
+        ))
+      }else if(sum(!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) & !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) )!=0){
+        #Add on the betas for the functional covariate(s), not including the beta(s) for the functional random intercept(s)
+        invisible(capture.output(
+          beta_hat.se.bs <- cbind(beta_hat.se.bs, do.call('cbind', mget(paste0('beta_hat_',
+                                                                         names(coef(model.bs,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) & #not the random intercept(s)
+                                                                                                                         !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ] #not the intercept
+                                                                               )
+                                                                        )
+                                                          )
+                                  )
+        ))
       }
     }
-    M[b,] <- apply(abs((beta_hat.bs - beta_hat)/beta_hat.se.bs), 2, max) #save the bth M
+    #save the bth M
+    M[b,] <- apply(abs((beta_hat.bs - beta_hat)/beta_hat.se.bs), 2, max)
     print(paste0('completed bootstrap sample ',b))
   }
-  #retrieve the SEs from the original pffr() output (not bootstrapped)
+  #retrieve the SEs from the original model output (not bootstrapped)
   beta0_hat_constant.se <- rep(summary(pffrmodel)$p.table[2], length(grid))
   invisible(capture.output(beta0_hat.se <- coef(pffrmodel,n1=length(grid))$smterms$`Intercept(grid)`$coef$se))
   beta_hat.se <- data.frame(beta0_hat_constant = beta0_hat_constant.se,
                             beta0_hat = beta0_hat.se)
   if(length(attr(terms(formula), "term.labels")) != 0){
-    for(i in names(coef(pffrmodel,n1=length(grid))$smterms[-1])){
+    invisible(capture.output(var.names <- names(coef(pffrmodel,n1=length(grid))$smterms[-1])))
+    for(i in var.names){
       invisible(capture.output(list <- coef(pffrmodel,n1=length(grid))$smterms[
         which(names(coef(pffrmodel,n1=length(grid))$smterms) == i )]))
       assign(paste0('beta_hat_',i),
              list[[1]]$coef$se)
     }
     if(is.null(re)){
-      beta_hat.se <- cbind(beta_hat.se, do.call('cbind', mget(paste0('beta_hat_',
-                                                                     names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
-    }else{
-      beta_hat.se <- cbind(beta_hat.se, do.call('cbind', mget(paste0('beta_hat_',
-                                                                     names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(pffrmodel,n1=length(grid))$smterms)) &
-                                                                                                                      !grepl("Intercept", names(coef(pffrmodel,n1=length(grid))$smterms)) ]  ))))
+      invisible(capture.output(
+        beta_hat.se <- cbind(beta_hat.se, do.call('cbind', mget(paste0('beta_hat_',
+                                                                             names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ] #not the intercept
+                                                                       )
+                                                                )
+                                                  )
+                             )
+      ))
+    }else if(sum(!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) & !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) )!=0){
+      #Add on the betas for the functional covariate(s), not including the beta(s) for the functional random intercept(s)
+      invisible(capture.output(
+        beta_hat.se <- cbind(beta_hat.se, do.call('cbind', mget(paste0('beta_hat_',
+                                                                             names(coef(pffrmodel,n1=length(grid))$smterms)[!grepl(re, names(coef(model.bs,n1=length(grid))$smterms)) & #not the random intercept(s)
+                                                                                                                             !grepl("Intercept", names(coef(model.bs,n1=length(grid))$smterms)) ] #not the intercept
+                                                                       )
+                                                                )
+                                                  )
+                              )
+      ))
     }
   }
   #get q and calculate the confidence bands

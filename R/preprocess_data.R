@@ -18,8 +18,17 @@
 #'
 #' @export
 
-preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=50, perm.yn=F,
-                            R=200, inc=1, image.dims, summary.function='L',seed=NULL){
+preprocess_data <- function(data,
+                            from.cell,
+                            to.cell,
+                            qc.cellcount.cutoff=0,
+                            P=50,
+                            perm.yn=F,
+                            R=200,
+                            inc=1,
+                            image.dims,
+                            summary.function='L',
+                            seed=NULL){
   if(!is.null(seed)){set.seed(seed)}
   image.xmax <- image.dims[2]
   image.ymax <- image.dims[4]
@@ -115,6 +124,6 @@ preprocess_data <- function(data, from.cell, to.cell, qc.cellcount.cutoff=20, P=
   covariate.df$cell_id <- covariate.df$cell_x <- covariate.df$cell_y <- covariate.df[['cell_type']] <- NULL
   covariate.df <- unique(covariate.df)
   sumfun.data <- merge(sumfun.data, covariate.df, by='image_number'
-                       , all=F) #all=F:  if an image doesn't meet the qc.cutoff, don't include its covariates
+                       , all=F) #all=F:  if an image doesn't meet the qc.cutoff, don't include it
   return(sumfun.data)
 }
