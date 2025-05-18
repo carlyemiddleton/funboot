@@ -2,26 +2,26 @@
 % Please edit documentation in R/Ftest.R
 \name{Ftest}
 \alias{Ftest}
-\title{Conducts the wild bootstrap partial F test for two nested \emph{pffr()} models}
+\title{Conducts a wild bootstrap partial F test for two nested \emph{pffr()} models}
 \usage{
 Ftest(
   formula.full,
   formula.red,
   data,
   spatial.covars = NULL,
-  B = 1000,
+  B = 500,
   re = NULL,
   seed = NULL
 )
 }
 \arguments{
-\item{formula.full}{An object of class \emph{formula}.  The formula for the full model}
+\item{formula.full}{An object of class \emph{formula}.  The formula for the full model with special terms as in mgcv's GAM}
 
-\item{formula.red}{An object of class \emph{formula}.  The formula for the reuced model}
+\item{formula.red}{An object of class \emph{formula}.  The formula for the reduced model with special terms as in mgcv's GAM}
 
 \item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
 
-\item{spatial.covars}{Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')}
+\item{spatial.covars}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
 
 \item{B}{Number of bootstrap samples}
 
@@ -30,8 +30,8 @@ Ftest(
 \item{seed}{Random seed to be used during the bootstrap resampling (optional).}
 }
 \value{
-A list containing the p-value for the F test and the bootstrap distribution of M
+A list containing the p-value from the F test and the bootstrap distribution of M
 }
 \description{
-Conducts the wild bootstrap partial F test for two nested \emph{pffr()} models
+Conducts a wild bootstrap partial F test for two nested \emph{pffr()} models
 }

@@ -8,18 +8,18 @@ wildBS_CB(
   formula,
   data,
   spatial.covars = NULL,
-  B = 1000,
+  B = 500,
   alpha = 0.05,
   re = NULL,
   seed = NULL
 )
 }
 \arguments{
-\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model}
+\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model with special terms as in mgcv's GAM}
 
 \item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
 
-\item{spatial.covars}{Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')}
+\item{spatial.covars}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
 
 \item{B}{Number of bootstrap samples}
 
@@ -30,7 +30,7 @@ wildBS_CB(
 \item{seed}{Random seed to be used during the bootstrap resampling (optional).}
 }
 \value{
-A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard erorrs from the \emph{pffr()} output and additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild boostrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
+A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard errors from the \emph{pffr()} output and additional intermittent variables used in the calculation of the confidence band.  'p.vals' are p-values for each model coefficient function yielded by the wild bootstrap test of the model coefficient against 0, and 'test.stats' are the associated test statistics.
 }
 \description{
 Calculates wild bootstrap confidence bands for \emph{pffr()} model coefficients

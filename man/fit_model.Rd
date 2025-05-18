@@ -2,20 +2,20 @@
 % Please edit documentation in R/fit_model.R
 \name{fit_model}
 \alias{fit_model}
-\title{Fits a the \emph{pffr()} model to spatial summary function data}
+\title{Fits a \emph{pffr()} model to spatial summary function data}
 \usage{
 fit_model(formula, data, spatial.covars = NULL)
 }
 \arguments{
-\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model}
+\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model with special terms as in mgcv's GAM}
 
 \item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
 
-\item{spatial.covars}{Vector containing the names of the covariate(s) to be specified as spatially-varying.  For example, c('var1','var2')}
+\item{spatial.covars}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
 }
 \value{
-A \emph{pffr()} model object.  See \emph{refund::pffr()}
+A \emph{pffr()} model object
 }
 \description{
-Fits a the \emph{pffr()} model to spatial summary function data
+Fits a \emph{pffr()} model to spatial summary function data
 }

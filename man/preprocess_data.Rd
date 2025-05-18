@@ -8,7 +8,7 @@ preprocess_data(
   data,
   from.cell,
   to.cell,
-  qc.cellcount.cutoff = 20,
+  qc.cellcount.cutoff = 0,
   P = 50,
   perm.yn = F,
   R = 200,
