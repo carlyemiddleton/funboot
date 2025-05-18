@@ -20,7 +20,7 @@ In this tutorial, we demonstrate the utilities of our method, *funboot,* for ana
 **Load package and dependencies**
 
 ```{r setup, error=FALSE, warning=FALSE, message=FALSE}
-devtools::install_github('carlyemiddleton/funboot')
+#devtools::install_github('carlyemiddleton/funboot')
 library(funboot) 
 
 #Dependencies for the analysis functions
