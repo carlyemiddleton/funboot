@@ -1,23 +1,29 @@
+library(spatstat.data)
+library(spatstat.univar)
+library(spatstat.geom)
+library(spatstat.random)
+library(spatstat.explore)
+library(stringr)
+library(refund)
 library(parallel)
+library(ggplot2)
+library(patchwork)
 
 #------------ Setup ----------------------------------------------------------------------------------------------
 nCores <- 24
 nthreads <- 1
-B1   <- 1000
+B1   <- 50
+B2   <- 50
 alpha <- 0.05
 seed <- 12345
 
-nSim <- 500
 nPatients <- 100 #number of patients
 nIm <- 1         #number of images per patient
-counts <- seq(100, 400, by = 10)
-sigma  <- 20
-delta <- 0
-
-progress_file <- "sim_progress.RData"
+counts <- seq(400, 700, by = 10)
+sigmab  <- 10
+deltab <- 7
 
 #------------ Define utility functions ---------------------------------------------------------------------------
-
 format_spatial_variable <- function(data, spatial_variable, grid, id){
   column <- function(i){data[data[id] == i,][spatial_variable][1] } #calling the outcome function Y
   mat_transpose <- data.frame(grid = grid)
@@ -219,6 +225,7 @@ get_fixed_and_re <- function(model, n_Im_total, grid, id) {
                   nrow = n_Im_total, ncol = length(grid), byrow = TRUE)
   list(fixed = fixed, b0 = b0)
 }
+
 
 wildBS_CB <- function(formula,
                       data,
@@ -464,177 +471,401 @@ wildBS_CB <- function(formula,
   return(CBs)
 }
 
-#------------ Define simulation functions -------------------------------------------------------------------------
-#Function to simulate 1 draw of data and calculate CB. To be repeated nSim times:
-sim <- function(iter,
-                nPatients,
-                nIm,
-                counts,
-                sigma,
-                delta,
-                alpha,
-                B1,
-                nthreads,
-                seed){
+plot_wildBS_CB <- function(CB_object){
+  print(
+    ggplot2::ggplot() +
+      ggplot2::theme_bw() +
+      ggplot2::geom_line(ggplot2::aes(x=CB_object$grid,
+                                      y=CB_object$target_curve_estimates,
+                                      col='Estimate')
+      ) +
+      ggplot2::geom_line(ggplot2::aes(x=CB_object$grid,
+                                      y=CB_object$CB_lower,
+                                      col='Wild Bootstrap CB')
+      ) +
+      ggplot2::geom_line(ggplot2::aes(x=CB_object$grid,
+                                      y=CB_object$CB_upper,
+                                      col='Wild Bootstrap CB')
+      ) +
+      ggplot2::labs(x='Radius',
+                    y="Target Curve",
+                    col=' ') +
+      ggplot2::theme(axis.title.y = ggplot2::element_text(size = 20),
+                     axis.title.x = ggplot2::element_text(size = 20)) +
+      ggplot2::geom_hline(yintercept=0,
+                          lty=2) +
+      ggplot2::scale_color_manual(values = c("Estimate" = '#F8766D',
+                                             "Wild Bootstrap CB"='#00BA38'))
+  )
 
-  set.seed(iter+seed)
+}
 
-  ##Simulate data from Poisson point process
-  window <- owin(xrange = c(0, 1000), yrange = c(0, 1000))
-  g1 <- rpois(nPatients / 2, sigma)
-  g2 <- rpois(nPatients / 2, sigma + delta)
-  adjustSigma <- c(g1, g2) + 1
+#------------ Simulate 1 draw of data -------------------------------------------------------------------------
+set.seed(seed)
 
-  x <- y <- cellType <- imageID <- NULL
-  for (p in 1:nPatients){
-    for (j in 1:nIm){
-      sCount1 <- sample(counts, 1)
-      sCount2 <- sample(counts, 1)
+tumor_prob <- .9 #probability that a given image contains a tumor
+tumor_heights <- seq(from = 500, to = 700, by = 100)
+tumor_widths <- seq(from = 500, to = 700, by = 100)
+sigmat = 10
+window <- spatstat.geom::owin(xrange = c(0, 1000),
+                              yrange = c(0, 1000))
+
+g1 <- rpois(nPatients/2, sigmab)
+g2 <- rpois(nPatients/2, sigmab + deltab )
+adjustSigma = c(g1,g2)+1
+
+x <- c()
+y <- c()
+cellType <- c()
+imageID <- c()
+
+for (p in 1:nPatients) {
+  for (j in 1:nIm) {
+    if(rbinom(1,size=1,prob=tumor_prob)==1){ #if the image contains a tumor
+      #Determine tumor region
+      tumor_height <- sample(tumor_heights, 1)
+      tumor_width <- sample(tumor_widths, 1)
+      tumor_center_x <- runif(1, min=window$xrange[1], max=window$xrange[2])
+      tumor_center_y <- runif(1, min=window$yrange[1], max=window$yrange[2])
+      tumor_xrange <- pmin(pmax(c(tumor_center_x-tumor_width/2, tumor_center_x+tumor_width/2),0),1000)
+      tumor_yrange <- pmin(pmax(c(tumor_center_y-tumor_height/2, tumor_center_y+tumor_height/2),0),1000)
+      tumor_counts <- seq(from = 100, to = 400, by = 10)*(tumor_height*tumor_width/1000^2)
+      tumor_window <- spatstat.geom::owin(xrange = tumor_xrange,
+                                          yrange = tumor_yrange)
+      #Generate Type A cells in stroma using homogeneous Poisson point process
+      sCount1 <- sample(counts,1)
       a <- rpoispp(sCount1/1000^2, win = window)
-      aDens <- density(a, sigma = adjustSigma[p], kernel = "disc")
-      aDens$v <- pmax(aDens$v, 0) * sCount2 / sCount1
-      b <- rpoispp(aDens)
+      #Generate Type A cells in tumor using homogeneous Poisson point process
+      a_tumor <- rpoispp(sCount1/1000^2, win = tumor_window)
+      aDens_tumor <- density(a_tumor, sigma = adjustSigma[p], kernel = "disc")
+      sCount2 <- sCount1
+      sCount_tumor <- sCount1
+      aDens_tumor$v <- pmax(aDens_tumor$v,0)*sCount2/sCount1
+      #Generate B in tumor as colocalized with A
+      if(a_tumor$n > 0){b_tumor <- rpoispp(aDens_tumor)}else{b_tumor <- a_tumor}
+      #Generate B in stroma using homogeneous Poisson point process
+      b <- rpoispp(sCount2/1000^2, win = window)  #B is random in stroma
+      #Generate T in tumor as colocalized with A
+      aDens_tumor <- density(a_tumor, sigma = sigmat, kernel = "disc")
+      aDens_tumor$v <- pmax(aDens_tumor$v,0)*sCount_tumor/sCount1
+      if(a_tumor$n > 0){t <- rpoispp(aDens_tumor)} else {t <- a_tumor}
+
+      #Patch tumor and stroma regions together
+      num_a_stroma <- length(a$x[a$x < tumor_xrange[1] | a$x > tumor_xrange[2] |
+                                   a$y < tumor_yrange[1] | a$y > tumor_yrange[2] ])
+      num_b_stroma <- length(b$x[b$x < tumor_xrange[1] | b$x > tumor_xrange[2] |
+                                   b$y < tumor_yrange[1] | b$y > tumor_yrange[2] ])
+
+      stroma_x <- c(a$x[a$x < tumor_xrange[1] | a$x > tumor_xrange[2] |
+                          a$y < tumor_yrange[1] | a$y > tumor_yrange[2] ],
+                    b$x[b$x < tumor_xrange[1] | b$x > tumor_xrange[2] |
+                          b$y < tumor_yrange[1] | b$y > tumor_yrange[2] ] )
+      tumor_x <- c(a_tumor$x, b_tumor$x, t$x)
+      stroma_y <- c(a$y[a$x < tumor_xrange[1] | a$x > tumor_xrange[2] |
+                          a$y < tumor_yrange[1] | a$y > tumor_yrange[2] ],
+                    b$y[b$x < tumor_xrange[1] | b$x > tumor_xrange[2] |
+                          b$y < tumor_yrange[1] | b$y > tumor_yrange[2] ] )
+      tumor_y <- c(a_tumor$y, b_tumor$y, t$y)
+
+      x <- c(x, stroma_x, tumor_x)
+      y <- c(y, stroma_y, tumor_y)
+
+      cellType <- c(cellType, rep("A", num_a_stroma), rep("B", num_b_stroma),
+                    rep("A", a_tumor$n), rep("B", b_tumor$n), rep("T", t$n))
+      imageID <- c(imageID, rep(paste(p,j,sep = "_"), num_a_stroma+num_b_stroma+a_tumor$n+b_tumor$n+t$n))
+    } else {
+      #Generate A and B in entire image region using a homogeneous Poisson point process
+      sCount1 <- sample(counts,1)
+      sCount2 <- sample(counts,1)
+      a <- rpoispp(sCount1/1000^2, win = window)
+      b <- rpoispp(sCount2/1000^2, win = window)
 
       x <- c(x, a$x, b$x)
       y <- c(y, a$y, b$y)
+
       cellType <- c(cellType, rep("A", a$n), rep("B", b$n))
-      imageID  <- c(imageID, rep(paste(p, j, sep = "_"), a$n + b$n))
+      imageID <- c(imageID, rep(paste(p,j,sep = "_"), a$n+b$n))
     }
   }
-  imageID <- factor(imageID)
-
-  cellExp <- data.frame(x = x, y = y, cellType = factor(cellType), imageID = imageID)
-  phenoData <- data.frame(
-    imageID  = unique(imageID),
-    condition = ifelse(as.numeric(sapply(unique(imageID), function(x) str_split(x, "_")[[1]][1]))
-                       <= nPatients/2, "Group1", "Group2"),
-    subject   = as.numeric(sapply(unique(imageID), function(x) str_split(x, "_")[[1]][1]))
-  )
-
-  table <- cellExp
-  names(table) <- c("Xcoord", "Ycoord", "cell.type", "image")
-  table$patient.id <- sapply(table$image, function(x) str_split(x, "_")[[1]][1])
-  table$roi        <- sapply(table$image, function(x) str_split(x, "_")[[1]][2])
-  names(phenoData) <- c("image", "group", "patient.id")
-  table <- merge(table, phenoData, by = c("image", "patient.id"), all = TRUE)
-  colnames(table) <- c("image_number", "patient_id", "cell_x", "cell_y", "cell_type", "roi", "group")
-
-  ##Calculate spatial summary functions
-  sumfun_data <- preprocess_data(
-    table,
-    from_cell = "A",
-    to_cell = "B",
-    qc_cellcount_cutoff = 0,
-    perm_yn = FALSE, #no holes in simulated data
-    r_max = 200,
-    inc = 1,
-    image_dims = c(0, 1000, 0, 1000),
-    summary_function = "L"
-  )
-  sumfun_data$group <- ifelse(sumfun_data$group == "Group1", 1, 0)
-  sumfun_data$patient_id <- factor(sumfun_data$patient_id)
-
-  ##Calculate confidence band
-  CBs <- wildBS_CB(formula=outcome ~ group,
-                   data=sumfun_data,
-                   target = c("group"),
-                   form   = c("coef"),
-                   func = function(group){group},
-                   B1=B1,
-                   alpha=.05,
-                   nthreads = nthreads,
-                   id='patient_id',
-                   inner_SEs_from_package=TRUE)
-  excludes0 <- any(CBs$CB_lower > 0 | CBs$CB_upper < 0)
-  list(
-    excludes0 = excludes0,
-    target_curve_estimates = CBs$target_curve_estimates,
-    CB_lower = CBs$CB_lower,
-    CB_upper = CBs$CB_upper
-  )
 }
 
-sim_with_save <- function(iter,
-                          nPatients,
-                          nIm,
-                          counts,
-                          sigma,
-                          delta,
-                          alpha,
-                          B1,
-                          nthreads,
-                          seed,
-                          progress_file,
-                          nSim){
-  res <- sim(iter, nPatients, nIm, counts, sigma, delta, alpha, B1, nthreads, seed)
+imageID <- factor(imageID)
 
-  #append progress
-  attempt <- 1
-  repeat {
-    ok <- try({
-      if (file.exists(progress_file)) {
-        load(progress_file)
-        if (length(excludes0_vec) != nSim) {
-          excludes0_vec <- rep(NA, nSim)
-        }
-      } else {
-        excludes0_vec <- rep(NA, nSim)
-      }
-      excludes0_vec[iter] <- res$excludes0
-      save(excludes0_vec, file = progress_file)
-      TRUE
-    }, silent = TRUE)
-    if (isTRUE(ok)) break
-    if (attempt > 10) {
-      warning("Failed to update progress after 10 attempts.")
-      break
-    }
-    attempt <- attempt + 1
-    Sys.sleep(runif(1, 0.05, 0.2))
-  }
-
-  res
-}
-
-#------------ Simulate--------------------------------------------------------------------------------------------
-set.seed(seed)
-iters <- as.list(1:nSim)
-if (file.exists(progress_file)) file.remove(progress_file)
-cl <- makeCluster(nCores, type = "PSOCK")
-clusterEvalQ(cl, { #load the necessary packages on the parallel workers
-  library(spatstat.geom)
-  library(spatstat.random)
-  library(spatstat.explore)
-  library(stringr)
-  library(refund)
-  library(mgcv)
-})
-clusterExport(cl, #export the necessary variables and functions to the parallel workers
-              varlist = c(
-                #Variables
-                "nPatients", "nIm", "counts", "sigma", "delta",
-                "alpha", "B1", "nthreads", "seed",
-                "nSim", "progress_file",
-
-                #Functions
-                "format_spatial_variable", "preprocess_data",
-                "extract_target_curve", "extract_package_SEs", "get_fixed_and_re",
-                "wildBS_CB",
-                "sim", "sim_with_save"
-              ),
-              envir = environment()
+cellExp <- data.frame(
+  x = x,
+  y = y,
+  cellType = factor(cellType),
+  imageID = imageID
 )
 
-res_list <- parLapplyLB(cl, iters, sim_with_save,
-                        nPatients = nPatients, nIm=nIm, counts = counts, sigma = sigma, delta=delta,
-                        alpha = alpha, B1 = B1,
-                        nthreads = nthreads, seed=seed,
-                        progress_file = progress_file, nSim = nSim)
 
-target_curve <- do.call(rbind, lapply(res_list, `[[`, "target_curve_estimates"))
-CB_lower     <- do.call(rbind, lapply(res_list, `[[`, "CB_lower"))
-CB_upper     <- do.call(rbind, lapply(res_list, `[[`, "CB_upper"))
-excludes0    <- sapply(res_list, `[[`, "excludes0") #does the CB exclude 0?
-grid <- 0:200
+phenoData <- data.frame(imageID = unique(imageID),
+                        condition = rep(c("Group1", "Group2"), each = nIm*nPatients/2),
+                        subject = rep(1:nPatients, each = nIm))
 
-save(target_curve, CB_lower, CB_upper, excludes0, grid, file = "sim_results.RData")
+table <- cellExp
+names(table) <- c('Xcoord','Ycoord','cell_type','image')
+table$patient_id <- sapply(table$image, function(x){stringr::str_split(x, stringr::fixed("_"))[[1]][1]})
+table$roi <- sapply(table$image, function(x){stringr::str_split(x, stringr::fixed("_"))[[1]][2]})
+names(phenoData) <- c('image','group','patient_id')
+table <- merge(table, phenoData, by=c('image','patient_id'), all=T)
+colnames(table) <- c('image_number','patient_id','cell_x', 'cell_y', "cell_type",  'roi', 'group')
+
+#Calculate spatial summary functions
+sumfun_data <- preprocess_data(table,
+                               from_cell='A',
+                               to_cell='B',
+                               qc_cellcount_cutoff=0,
+                               perm_yn=F,
+                               r_max=200,
+                               inc=1,
+                               image_dims=c(0,1000,0,1000),
+                               summary_function='L')
+sumfun_data$group <- ifelse(sumfun_data$group=='Group1', 1, 0)
+#var_mat represents the values of the spatial covariate \hat{L}_{AT}(r)
+var_mat_data <- preprocess_data(table,
+                                from_cell='A',
+                                to_cell='T',
+                                qc_cellcount_cutoff=0,
+                                perm_yn=F,
+                                r_max=200,
+                                inc=1,
+                                image_dims=c(0,1000,0,1000),
+                                summary_function='L')
+var_mat_data$group <- ifelse(var_mat_data$group=='Group1', 1, 0)
+names(var_mat_data)[names(var_mat_data)=='L_obs'] <- 'var_mat'
+var_mat_data$L_expect <- var_mat_data$L_pmean <- var_mat_data$outcome <- NULL
+sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','roi','group'),all=T)
+sumfun_data_full$var_mat <- ifelse(is.na(sumfun_data_full$var_mat), 0, sumfun_data_full$var_mat)
+#The interaction term
+sumfun_data_full$var_group_mat <- sumfun_data_full$var_mat*sumfun_data_full$group
+
+#For the prediction, use \hat{L}_{AT}(r) from patients 10 and 51 to represent groups 1 and 2, respectively.
+#sumfun_data_trtpatient <- sumfun_data_full[sumfun_data_full$image_number=='10_1',]
+#sumfun_data_ctrlpatient <- sumfun_data_full[sumfun_data_full$image_number=='51_1',]
+sumfun_data_trtpatient <- sumfun_data_full[sumfun_data_full$image_number=='5_1',]
+sumfun_data_ctrlpatient <- sumfun_data_full[sumfun_data_full$image_number=='59_1',]
+
+#-------------- Get confidence band for E[Y|X] for a trt patient (overall image) ---------------------------------
+
+covar_list_trt_overall <- list(Intercept = rep(1, length(sumfun_data_trtpatient$group)),
+                                  group = sumfun_data_trtpatient$group,
+                                  var_mat = sumfun_data_trtpatient$var_mat,
+                                  var_group_mat = sumfun_data_trtpatient$var_group_mat)
+
+CB1 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
+                data=sumfun_data_full,
+                spatial_covars = c('var_mat','var_group_mat'),
+                target = c("Intercept","group", "var_mat", "var_group_mat"),
+                form   = c("coef","term","term","term"),
+                covar_list = covar_list_trt_overall,
+                func = function(Intercept, group, var_mat, var_group_mat){
+                  Intercept + group + var_mat + var_group_mat
+                },
+                B1=B1,
+                B2=B2,
+                alpha=.05,
+                re=NULL,
+                id='patient_id',
+                nthreads = 1,
+                inner_SEs_from_package=FALSE)
+
+plot_wildBS_CB(CB1)
+
+#-------------- Get confidence band for E[Y|X] for a ctrl patient (overall image) ---------------------------------
+
+covar_list_ctrl_overall <- list(Intercept = rep(1, length(sumfun_data_ctrlpatient$group)),
+                                  group = sumfun_data_ctrlpatient$group,
+                                  var_mat = sumfun_data_ctrlpatient$var_mat,
+                                  var_group_mat = sumfun_data_ctrlpatient$var_group_mat)
+
+CB2 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
+                data=sumfun_data_full,
+                spatial_covars = c('var_mat','var_group_mat'),
+                target = c("Intercept","group", "var_mat", "var_group_mat"),
+                form   = c("coef","term","term","term"),
+                covar_list = covar_list_ctrl_overall,
+                func = function(Intercept, group, var_mat, var_group_mat){
+                  Intercept + group + var_mat + var_group_mat
+                },
+                B1=B1,
+                B2=B2,
+                alpha=.05,
+                re=NULL,
+                id='patient_id',
+                nthreads = 1,
+                inner_SEs_from_package=FALSE)
+
+plot_wildBS_CB(CB2)
+
+#-------------- Get confidence band for E[Y|X] for a group 1 patient (stroma region only) ---------------------------------
+
+covar_list_trt_stroma <- list(Intercept = rep(1, length(sumfun_data_trtpatient$group)),
+                                  group = sumfun_data_trtpatient$group,
+                                  var_mat = rep(0, length(sumfun_data_trtpatient$group)),
+                                  var_group_mat = rep(0, length(sumfun_data_trtpatient$group)))
+
+CB3 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
+                data=sumfun_data_full,
+                spatial_covars = c('var_mat','var_group_mat'),
+                target = c("Intercept","group", "var_mat", "var_group_mat"),
+                form   = c("coef","term","term","term"),
+                covar_list = covar_list_trt_stroma,
+                func = function(Intercept, group, var_mat, var_group_mat){
+                  Intercept + group + var_mat + var_group_mat
+                },
+                B1=B1,
+                B2=B2,
+                alpha=.05,
+                re=NULL,
+                id='patient_id',
+                nthreads = 1,
+                inner_SEs_from_package=FALSE)
+
+plot_wildBS_CB(CB3)
+
+#-------------- Get confidence band for E[Y|X] for a ctrl patient (stroma region only) ---------------------------------
+
+covar_list_ctrl_stroma <- list(Intercept = rep(1, length(sumfun_data_ctrlpatient$group)),
+                                 group = sumfun_data_ctrlpatient$group,
+                                 var_mat = rep(0, length(sumfun_data_ctrlpatient$group)),
+                                 var_group_mat = rep(0, length(sumfun_data_ctrlpatient$group)))
+
+CB4 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
+                data=sumfun_data_full,
+                spatial_covars = c('var_mat','var_group_mat'),
+                target = c("Intercept","group", "var_mat", "var_group_mat"),
+                form   = c("coef","term","term","term"),
+                covar_list = covar_list_ctrl_stroma,
+                func = function(Intercept, group, var_mat, var_group_mat){
+                  Intercept + group + var_mat + var_group_mat
+                },
+                B1=B1,
+                B2=B2,
+                alpha=.05,
+                re=NULL,
+                id='patient_id',
+                nthreads = 1,
+                inner_SEs_from_package=FALSE)
+
+plot_wildBS_CB(CB4)
+
+#-------------- Plot results---------------------------------------------------------------------------------------------
+lw <- 1
+
+pimage <- ggplot() +
+  theme_bw() +
+  geom_line(aes(x = CB1$grid, y = CB1$target_curve_estimates, col = "Estimated E[Y(r) | X]", linetype = "Treatment Group"), linewidth = lw) +
+  geom_line(aes(x = CB2$grid, y = CB2$target_curve_estimates, col = "Estimated E[Y(r) | X]", linetype = "Control Group"), linewidth = lw) +
+  geom_line(aes(x = CB1$grid, y = CB1$CB_lower, col = "95% Confidence Band", linetype = "Treatment Group"), linewidth = lw) +
+  geom_line(aes(x = CB2$grid, y = CB2$CB_lower, col = "95% Confidence Band", linetype = "Control Group"), linewidth = lw) +
+  geom_line(aes(x = CB1$grid, y = CB1$CB_upper, col = "95% Confidence Band", linetype = "Treatment Group"), linewidth = lw) +
+  geom_line(aes(x = CB2$grid, y = CB2$CB_upper, col = "95% Confidence Band", linetype = "Control Group"), linewidth = lw) +
+  labs(
+    x = "r",
+    y = expression(E * "[" * Y(r) * "|" * X * "]"),
+    col = ""
+  ) +
+  theme(
+    legend.position = "none",
+    axis.title.y = element_text(size = 20),
+    axis.title.x = element_text(size = 20)
+  ) +
+  scale_color_manual(
+    values = c(
+      "Estimated E[Y(r) | X]" = "#F8766D",
+      "95% Confidence Band" = "#00BA38"
+    )
+  ) +
+  scale_linetype_manual(name = "", values = c("Treatment Group" = 1, "Control Group" = 2)) +
+  geom_hline(yintercept = 0, lty = 3) +
+  ggtitle("Overall Image") +
+  ylim(c(-1, 4)) +
+  theme(
+    title = element_text(size = 18),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 12)
+  )
+
+pstroma <- ggplot() +
+  theme_bw() +
+  geom_line(aes(x = CB3$grid, y = CB3$target_curve_estimates, col = "Estimated E[Y(r) | X]", linetype = "Treatment Group"), linewidth = lw) +
+  geom_line(aes(x = CB4$grid, y = CB4$target_curve_estimates, col = "Estimated E[Y(r) | X]", linetype = "Control Group"), linewidth = lw) +
+  geom_line(aes(x = CB3$grid, y = CB3$CB_lower, col = "95% Confidence Band", linetype = "Treatment Group"), linewidth = lw) +
+  geom_line(aes(x = CB4$grid, y = CB4$CB_lower, col = "95% Confidence Band", linetype = "Control Group"), linewidth = lw) +
+  geom_line(aes(x = CB3$grid, y = CB3$CB_upper, col = "95% Confidence Band", linetype = "Treatment Group"), linewidth = lw) +
+  geom_line(aes(x = CB4$grid, y = CB4$CB_upper, col = "95% Confidence Band", linetype = "Control Group"), linewidth = lw) +
+  labs(
+    x = "r",
+    y = expression(E * "[" * Y(r) * "|" * X * "]"),
+    col = ""
+  ) +
+  theme(
+    axis.title.y = element_text(size = 20),
+    axis.title.x = element_text(size = 20)
+  ) +
+  scale_color_manual(
+    values = c(
+      "Estimated E[Y(r) | X]" = "#F8766D",
+      "95% Confidence Band" = "#00BA38"
+    )
+  ) +
+  scale_linetype_manual(name = "", values = c("Treatment Group" = 1, "Control Group" = 2)) +
+  geom_hline(yintercept = 0, lty = 3) +
+  ggtitle("Stroma Regions") +
+  ylim(c(-2, 3)) +
+  theme(
+    title = element_text(size = 18),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 15)
+  ) +
+  theme(
+    legend.key.width = unit(1, "cm")
+  )
+
+png('sim2-bands.png', width=4000, height=1000, res=300)
+(pimage + pstroma) + plot_annotation(
+  theme = theme(plot.title = element_text(size = 22),
+                plot.subtitle = element_text(size = 22))
+)
+dev.off()
+
+
+#---Plot of Data Generation-------------------------------------------------------------------------------------
+
+png(paste0('simplot5_1.png'), width=1700, height=1500, res=300)
+ggplot(data=cellExp[cellExp$imageID=='5_1',]) + theme_bw() +
+  geom_point(aes(x=x, y=y, col=cellType)) + labs(title='Patient #5 (Treatment Group)',
+                                                 x=expression('X Coordinate (' ~ mu ~ 'm)'),y=expression('Y Coordinate (' ~ mu ~ 'm)'), col='Cell Type') +
+  theme(plot.title = element_text(size = 20),
+        legend.key.height = unit(1, 'cm'), #change legend key height
+        legend.key.width = unit(1, 'cm'), #change legend key width
+        legend.title = element_text(size=14), #change legend title font size
+        legend.text = element_text(size=15), #change legend text font size
+        axis.title=element_text(size=14)) +
+  guides(colour = guide_legend(override.aes = list(size=3)))
+dev.off()
+
+
+png(paste0('simplot59_1.png'), width=1700, height=1500, res=300)
+ggplot(data=cellExp[cellExp$imageID=='59_1',]) + theme_bw() +
+  geom_point(aes(x=x, y=y, col=cellType)) + labs(title='Patient #59 (Control Group)',
+                                                 x=expression('X Coordinate (' ~ mu ~ 'm)'),y=expression('Y Coordinate (' ~ mu ~ 'm)'), col='Cell Type')  +
+  theme(plot.title = element_text(size = 20),
+        legend.key.height = unit(1, 'cm'), #change legend key height
+        legend.key.width = unit(1, 'cm'), #change legend key width
+        legend.title = element_text(size=14), #change legend title font size
+        legend.text = element_text(size=15), #change legend text font size
+        axis.title=element_text(size=14)) +
+  guides(colour = guide_legend(override.aes = list(size=3)))
+dev.off()
+
+
+## Then annotate in powerpoint
+## Then convert to 300 dpi .png:
+
+library(pdftools)
+library(magick)
+
+img <- image_read_pdf("annotated.pdf", density = 300)
+image_write(img, "annotated.png")

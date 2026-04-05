@@ -8,8 +8,8 @@ seed <- 12345
 nPatients <- 100
 nIm <- 1
 
-sigma <- 60   #Change to 40,60,80,100
-delta <- 12   #Change to sigma/10, sigma/5, sigma/2
+sigma <- 20   #Change to 40,60,80,100
+delta <- 0   #Change to sigma/10, sigma/5, sigma/2
 
 counts <- seq(100, 400, by = 10)
 
@@ -17,7 +17,7 @@ if (dir.exists("environments")) {
   unlink("environments", recursive = TRUE)
 }
 
-iters <- 1:100
+iters <- 1:500
 
 for(iter in iters){
   set.seed(iter+seed)

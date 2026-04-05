@@ -1,23 +1,9 @@
-library(parallel)
+library(ggplot2)
+library(patchwork)
 
-#------------ Setup ----------------------------------------------------------------------------------------------
-nCores <- 24
-nthreads <- 1
-B1   <- 1000
-alpha <- 0.05
-seed <- 12345
-
-nSim <- 500
-nPatients <- 100 #number of patients
-nIm <- 1         #number of images per patient
-counts <- seq(100, 400, by = 10)
-sigma  <- 20
-delta <- 0
-
-progress_file <- "sim_progress.RData"
+load('melanoma_data.rda')
 
 #------------ Define utility functions ---------------------------------------------------------------------------
-
 format_spatial_variable <- function(data, spatial_variable, grid, id){
   column <- function(i){data[data[id] == i,][spatial_variable][1] } #calling the outcome function Y
   mat_transpose <- data.frame(grid = grid)
@@ -219,6 +205,7 @@ get_fixed_and_re <- function(model, n_Im_total, grid, id) {
                   nrow = n_Im_total, ncol = length(grid), byrow = TRUE)
   list(fixed = fixed, b0 = b0)
 }
+
 
 wildBS_CB <- function(formula,
                       data,
@@ -464,177 +451,200 @@ wildBS_CB <- function(formula,
   return(CBs)
 }
 
-#------------ Define simulation functions -------------------------------------------------------------------------
-#Function to simulate 1 draw of data and calculate CB. To be repeated nSim times:
-sim <- function(iter,
-                nPatients,
-                nIm,
-                counts,
-                sigma,
-                delta,
-                alpha,
-                B1,
-                nthreads,
-                seed){
-
-  set.seed(iter+seed)
-
-  ##Simulate data from Poisson point process
-  window <- owin(xrange = c(0, 1000), yrange = c(0, 1000))
-  g1 <- rpois(nPatients / 2, sigma)
-  g2 <- rpois(nPatients / 2, sigma + delta)
-  adjustSigma <- c(g1, g2) + 1
-
-  x <- y <- cellType <- imageID <- NULL
-  for (p in 1:nPatients){
-    for (j in 1:nIm){
-      sCount1 <- sample(counts, 1)
-      sCount2 <- sample(counts, 1)
-      a <- rpoispp(sCount1/1000^2, win = window)
-      aDens <- density(a, sigma = adjustSigma[p], kernel = "disc")
-      aDens$v <- pmax(aDens$v, 0) * sCount2 / sCount1
-      b <- rpoispp(aDens)
-
-      x <- c(x, a$x, b$x)
-      y <- c(y, a$y, b$y)
-      cellType <- c(cellType, rep("A", a$n), rep("B", b$n))
-      imageID  <- c(imageID, rep(paste(p, j, sep = "_"), a$n + b$n))
-    }
-  }
-  imageID <- factor(imageID)
-
-  cellExp <- data.frame(x = x, y = y, cellType = factor(cellType), imageID = imageID)
-  phenoData <- data.frame(
-    imageID  = unique(imageID),
-    condition = ifelse(as.numeric(sapply(unique(imageID), function(x) str_split(x, "_")[[1]][1]))
-                       <= nPatients/2, "Group1", "Group2"),
-    subject   = as.numeric(sapply(unique(imageID), function(x) str_split(x, "_")[[1]][1]))
+plot_wildBS_CB <- function(CB_object){
+  print(
+    ggplot2::ggplot() +
+      ggplot2::theme_bw() +
+      ggplot2::geom_line(ggplot2::aes(x=CB_object$grid,
+                                      y=CB_object$target_curve_estimates,
+                                      col='Estimate')
+      ) +
+      ggplot2::geom_line(ggplot2::aes(x=CB_object$grid,
+                                      y=CB_object$CB_lower,
+                                      col='Wild Bootstrap CB')
+      ) +
+      ggplot2::geom_line(ggplot2::aes(x=CB_object$grid,
+                                      y=CB_object$CB_upper,
+                                      col='Wild Bootstrap CB')
+      ) +
+      ggplot2::labs(x='Radius',
+                    y="Target Curve",
+                    col=' ') +
+      ggplot2::theme(axis.title.y = ggplot2::element_text(size = 20),
+                     axis.title.x = ggplot2::element_text(size = 20)) +
+      ggplot2::geom_hline(yintercept=0,
+                          lty=2) +
+      ggplot2::scale_color_manual(values = c("Estimate" = '#F8766D',
+                                             "Wild Bootstrap CB"='#00BA38'))
   )
 
-  table <- cellExp
-  names(table) <- c("Xcoord", "Ycoord", "cell.type", "image")
-  table$patient.id <- sapply(table$image, function(x) str_split(x, "_")[[1]][1])
-  table$roi        <- sapply(table$image, function(x) str_split(x, "_")[[1]][2])
-  names(phenoData) <- c("image", "group", "patient.id")
-  table <- merge(table, phenoData, by = c("image", "patient.id"), all = TRUE)
-  colnames(table) <- c("image_number", "patient_id", "cell_x", "cell_y", "cell_type", "roi", "group")
-
-  ##Calculate spatial summary functions
-  sumfun_data <- preprocess_data(
-    table,
-    from_cell = "A",
-    to_cell = "B",
-    qc_cellcount_cutoff = 0,
-    perm_yn = FALSE, #no holes in simulated data
-    r_max = 200,
-    inc = 1,
-    image_dims = c(0, 1000, 0, 1000),
-    summary_function = "L"
-  )
-  sumfun_data$group <- ifelse(sumfun_data$group == "Group1", 1, 0)
-  sumfun_data$patient_id <- factor(sumfun_data$patient_id)
-
-  ##Calculate confidence band
-  CBs <- wildBS_CB(formula=outcome ~ group,
-                   data=sumfun_data,
-                   target = c("group"),
-                   form   = c("coef"),
-                   func = function(group){group},
-                   B1=B1,
-                   alpha=.05,
-                   nthreads = nthreads,
-                   id='patient_id',
-                   inner_SEs_from_package=TRUE)
-  excludes0 <- any(CBs$CB_lower > 0 | CBs$CB_upper < 0)
-  list(
-    excludes0 = excludes0,
-    target_curve_estimates = CBs$target_curve_estimates,
-    CB_lower = CBs$CB_lower,
-    CB_upper = CBs$CB_upper
-  )
 }
 
-sim_with_save <- function(iter,
-                          nPatients,
-                          nIm,
-                          counts,
-                          sigma,
-                          delta,
-                          alpha,
-                          B1,
-                          nthreads,
-                          seed,
-                          progress_file,
-                          nSim){
-  res <- sim(iter, nPatients, nIm, counts, sigma, delta, alpha, B1, nthreads, seed)
+#------------ CB for overall -------------------------------------------------------------------------------------
+set.seed(12345)
 
-  #append progress
-  attempt <- 1
-  repeat {
-    ok <- try({
-      if (file.exists(progress_file)) {
-        load(progress_file)
-        if (length(excludes0_vec) != nSim) {
-          excludes0_vec <- rep(NA, nSim)
-        }
-      } else {
-        excludes0_vec <- rep(NA, nSim)
-      }
-      excludes0_vec[iter] <- res$excludes0
-      save(excludes0_vec, file = progress_file)
-      TRUE
-    }, silent = TRUE)
-    if (isTRUE(ok)) break
-    if (attempt > 10) {
-      warning("Failed to update progress after 10 attempts.")
-      break
-    }
-    attempt <- attempt + 1
-    Sys.sleep(runif(1, 0.05, 0.2))
-  }
+sumfun_data <- preprocess_data(data=melanoma_data,
+                               from_cell="CD8- T cell",
+                               to_cell="CD8+ T cell",
+                               qc_cellcount_cutoff=20,
+                               n_perm=100,
+                               perm_yn=TRUE,
+                               r_max=500,
+                               inc=1,
+                               image_dims=c(0,1200,0,1200),
+                               summary_function='L',
+                               verbose=TRUE)
+sumfun_data$patient_id <- as.factor(sumfun_data$patient_id)
+save(sumfun_data, file='sumfun_data.RData')
 
-  res
-}
+CB_overall <- wildBS_CB(formula=outcome ~ s(patient_id, bs = "re"),
+                       data=sumfun_data,
+                       spatial_covars = NULL,
+                       target = c("Intercept"),
+                       form   = c("coef"),
+                       covar_list = list(),
+                       func = function(Intercept){
+                         Intercept
+                       },
+                       B1=50,
+                       B2=50,
+                       alpha=.05,
+                       re='patient_id',
+                       nthreads = 1,
+                       id='patient_id',
+                       inner_SEs_from_package=FALSE)
+save(CB_overall, file='CB_overall.RData')
+plot_wildBS_CB(CB_overall)
 
-#------------ Simulate--------------------------------------------------------------------------------------------
-set.seed(seed)
-iters <- as.list(1:nSim)
-if (file.exists(progress_file)) file.remove(progress_file)
-cl <- makeCluster(nCores, type = "PSOCK")
-clusterEvalQ(cl, { #load the necessary packages on the parallel workers
-  library(spatstat.geom)
-  library(spatstat.random)
-  library(spatstat.explore)
-  library(stringr)
-  library(refund)
-  library(mgcv)
-})
-clusterExport(cl, #export the necessary variables and functions to the parallel workers
-              varlist = c(
-                #Variables
-                "nPatients", "nIm", "counts", "sigma", "delta",
-                "alpha", "B1", "nthreads", "seed",
-                "nSim", "progress_file",
+#------------ CB for avascular regions -------------------------------------------------------------------------------------
+set.seed(12345)
 
-                #Functions
-                "format_spatial_variable", "preprocess_data",
-                "extract_target_curve", "extract_package_SEs", "get_fixed_and_re",
-                "wildBS_CB",
-                "sim", "sim_with_save"
-              ),
-              envir = environment()
+#var_mat represents the values of the spatial covariate \hat{L}_{CD8-,Vas}(r)
+var_mat_data <- preprocess_data(melanoma_data,
+                                from_cell='CD8- T cell',
+                                to_cell='Vasculature',
+                                qc_cellcount_cutoff=20,
+                                n_perm=100,
+                                perm_yn=TRUE,
+                                r_max=500,
+                                inc=1,
+                                image_dims=c(0,1200,0,1200),
+                                summary_function='L',
+                                verbose=TRUE)
+var_mat_data$patient_id <- as.factor(var_mat_data$patient_id)
+names(var_mat_data)[names(var_mat_data)=='L_obs'] <- 'var_mat'
+var_mat_data$L_expect <- var_mat_data$L_pmean <- var_mat_data$outcome <- NULL
+sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','patient_age'),all=T)
+sumfun_data_full$var_mat <- ifelse(is.na(sumfun_data_full$var_mat), 0, sumfun_data_full$var_mat)
+
+covar_list <- list(Intercept = rep(1, 501),
+                   var_mat = rep(0, 501))
+
+CB_avascular <- wildBS_CB(formula=outcome ~ var_mat + s(patient_id, bs = "re"),
+                         data=sumfun_data_full,
+                         spatial_covars = c('var_mat'),
+                         target = c("Intercept","var_mat"),
+                         form   = c("coef","term"),
+                         covar_list = covar_list,
+                         func = function(Intercept, var_mat){
+                           Intercept + var_mat
+                         },
+                         B1=50,
+                         B2=50,
+                         alpha=.05,
+                         re='patient_id',
+                         nthreads = 1,
+                         id='patient_id',
+                         inner_SEs_from_package=F)
+save(CB_avascular, file='CB_avascular.RData')
+plot_wildBS_CB(CB_avascular)
+
+#-------------- Plot results---------------------------------------------------------------------------------------------
+
+pimage <- ggplot() + theme_bw() +
+  geom_line(aes(x=CB_overall$grid,y=CB_overall$target_curve_estimates, col='Estimated E[Y(r)|X]'), size=1.5) +
+  geom_line(aes(x=CB_overall$grid,y=CB_overall$CB_lower, col='95% Confidence Band'), size=1.5) +
+  geom_line(aes(x=CB_overall$grid,y=CB_overall$CB_upper, col='95% Confidence Band'), size=1.5) +
+  labs(x='r', y='E[Y(r)|X]' #expression(
+    #hat(L)^{CD8 * "-," * CD8 * "+,"} * "(" * r * ")" -
+    #  hat(L)^{CD8 * "-," * CD8 * "+,"} * "(" * r * ")"
+  #),
+  #col = " "
+  ) +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 20),
+        axis.title.x = element_text(size = 20))  +
+  scale_color_manual(values = c("Estimated E[Y(r)|X]" = '#F8766D',
+                                "95% Confidence Band"='#00BA38')) +
+  geom_hline(yintercept=0, lty=3, size=1) + ylim(c(-100,200)) +
+  theme(title = element_text(size = 18),
+        legend.title = element_text(size=12),
+        legend.text = element_text(size=12),
+        plot.subtitle = element_text(size=18)) +
+  ggtitle('Overall Image')
+
+pavascular <- ggplot() + theme_bw() +
+  geom_line(aes(x=CB_avascular$grid,y=CB_avascular$target_curve_estimates, col='Estimated E[Y(r)|X]'), size=1.5) +
+  geom_line(aes(x=CB_avascular$grid,y=CB_avascular$CB_lower, col='95% Confidence Band'), size=1.5) +
+  geom_line(aes(x=CB_avascular$grid,y=CB_avascular$CB_upper, col='95% Confidence Band'), size=1.5) +
+  labs(x='r', y='E[Y(r)|X]' #expression(
+   # hat(L)^{CD8 * "-," * CD8 * "+,"} * "(" * r * ")" -
+  #    hat(L)^{CD8 * "-," * CD8 * "+,"} * "(" * r * ")"
+  #),
+  #col = " "
+  ) +
+  theme(
+    axis.title.y = element_text(size = 20),
+    axis.title.x = element_text(size = 20))  +
+  scale_color_manual(name = " ",
+                     values = c("Estimated E[Y(r)|X]" = '#F8766D',
+                                "95% Confidence Band"='#00BA38')) +
+  geom_hline(yintercept=0, lty=3, size=1) + ylim(c(-100,200)) +
+  theme(title = element_text(size = 18),
+        legend.title = element_text(size=12),
+        legend.text = element_text(size=18),
+        plot.subtitle = element_text(size=18)) +
+  ggtitle('Avascular Regions')
+
+png('melanoma-bands.png', width=4000, height=1050, res=300)
+(pimage + pavascular) + plot_annotation( #title = 'Colocalization Curve',
+  theme = theme(plot.title = element_text(size = 22),
+                plot.subtitle = element_text(size = 22))
 )
-
-res_list <- parLapplyLB(cl, iters, sim_with_save,
-                        nPatients = nPatients, nIm=nIm, counts = counts, sigma = sigma, delta=delta,
-                        alpha = alpha, B1 = B1,
-                        nthreads = nthreads, seed=seed,
-                        progress_file = progress_file, nSim = nSim)
-
-target_curve <- do.call(rbind, lapply(res_list, `[[`, "target_curve_estimates"))
-CB_lower     <- do.call(rbind, lapply(res_list, `[[`, "CB_lower"))
-CB_upper     <- do.call(rbind, lapply(res_list, `[[`, "CB_upper"))
-excludes0    <- sapply(res_list, `[[`, "excludes0") #does the CB exclude 0?
-grid <- 0:200
-
-save(target_curve, CB_lower, CB_upper, excludes0, grid, file = "sim_results.RData")
+dev.off()
+#
+# data <- melanoma_data
+# cols <- c('Other' = "gray",
+#           'CD8- T cell' = 'purple',
+#           'CD8+ T cell' = "orange",
+#           'Vasculature'='cyan4')
+# data$cells_interested <- ifelse(data$cell_type %in% c('CD8- T cell',
+#                                                       'CD8+ T cell',
+#                                                       'Vasculature'), data$cell_type, 'Other')
+# for(i in c(45, 54, 65, 137)){
+#   plot.data <- data[data$image_number == i,]
+#   plot.data$cells_interested <- factor(plot.data$cells_interested)
+#   assign(paste0('p',i), ggplot(data=plot.data, aes(x = cell_x, y = cell_y, col=cells_interested)) +
+#            geom_point() + theme_bw() + ggtitle(paste0('Image ',i)) +
+#            labs(x=expression('X Coordinate (' ~ mu ~ 'm)'), y = expression('Y Coordinate (' ~ mu ~ 'm)')) +
+#            scale_color_manual('Cell Type', values=cols, labels = c('CD8- T Cells', 'CD8+ T Cells', 'Other', 'Vasculature Cells') ) +
+#            theme(title = element_text(size = 18),
+#                  axis.title.x = element_text(size = 14),
+#                  axis.title.y = element_text(size = 14),
+#                  legend.key.height = unit(1, 'cm'), #change legend key height
+#                  legend.key.width = unit(1, 'cm'), #change legend key width
+#                  legend.title = element_text(size=16), #change legend title font size
+#                  legend.text = element_text(size=16)) +
+#            guides(colour = guide_legend(override.aes = list(size=5))) )
+# }
+# p45 <- p45 + theme(legend.position = 'none')
+# p54 <- p54 + theme(legend.position = 'none')
+# p65 <- p65 + theme(legend.position = 'none')
+#
+# png('melanoma-images.png', width=4800, height=1325, res=300)
+# (p45 + p54 + p65 + p137) + plot_layout(ncol = 4) + plot_annotation(
+#   title = "Interaction Between CD8+ T Cells and CD8- T Cells",
+#   theme = theme(plot.title = element_text(size = 22, face = "bold"),
+#                 plot.subtitle = element_text(size = 22))
+# )
+# dev.off()

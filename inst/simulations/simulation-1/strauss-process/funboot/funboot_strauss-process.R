@@ -3,16 +3,16 @@ library(parallel)
 #------------ Setup ----------------------------------------------------------------------------------------------
 nCores <- 2
 nthreads <- 1
-B1   <- 100
-B2   <- 100
+B1   <- 50
+B2   <- 50
 alpha <- 0.05
 seed <- 12345
 
 nSim <- 500
 nPatients <- 50  #number of patients
 nIm <- 3         #number of images per patient
-sigmaB <- 4
-sigmaB_diff <- 4*2/3
+tauB <- 2
+tauB_diff <- 0
 
 progress_file <- "sim_progress.RData"
 
@@ -469,8 +469,8 @@ wildBS_CB <- function(formula,
 sim <- function(iter,
                 nPatients,
                 nIm,
-                sigmaB,
-                sigmaB_diff,
+                tauB,
+                tauB_diff,
                 grid,
                 alpha,
                 B1,
@@ -480,31 +480,17 @@ sim <- function(iter,
 
   set.seed(iter+seed)
 
-  ##Settings for data generation
+  ##Generate data from Strauss process
   x <- y <- cellType <- imageID <- NULL
-  #Rhard_G1  <- .05
-  #beta_G1   <- 40
-  #muB_G1    <- 8
-  sigmaB_G1 <- sigmaB
+  tauB_G1 <- tauB
+  tauB_G2 <- tauB + tauB_diff
 
-  #Rhard_G2  <- .05
-  #beta_G2   <- 40
-  #muB_G2    <- 8
-  sigmaB_G2 <- sigmaB + sigmaB_diff
-
-  ##Generate data
   for (p in 1:nPatients){
     group <- ifelse(p <= nPatients/2, "Group1", "Group2")
     if (group == "Group1") {
-      #Rhard   <- Rhard_G1
-      #beta_p  <- beta_G1
-      #muB     <- muB_G1
-      sigmaB  <- abs(rnorm(1, mean = sigmaB_G1, sd = sqrt(sigmaB_G1 / 10)))
+      tauB  <- abs(rnorm(1, mean = tauB_G1, sd = sqrt(tauB_G1 / 10)))
     } else {
-      #Rhard   <- Rhard_G2
-      #beta_p  <- beta_G2
-      #muB     <- muB_G2
-      sigmaB  <- abs(rnorm(1, mean = sigmaB_G2, sd = sqrt(sigmaB_G2 / 10)))
+      tauB  <- abs(rnorm(1, mean = tauB_G2, sd = sqrt(tauB_G2 / 10)))
     }
     nIm <- nIm
     for (j in 1:nIm){
@@ -525,8 +511,8 @@ sim <- function(iter,
           kB <- rpois(1, muB)
           if (kB > 0) {
             ptsB <- cbind(
-              rnorm(kB, A_x[i], sigmaB),
-              rnorm(kB, A_y[i], sigmaB)
+              rnorm(kB, A_x[i], tauB),
+              rnorm(kB, A_y[i], tauB)
             )
             B_xy <- rbind(B_xy, ptsB)
           }
@@ -555,7 +541,6 @@ sim <- function(iter,
   }
   imageID <- factor(imageID)
 
-  #build table
   cellExp <- data.frame(
     x = x,
     y = y,
@@ -585,7 +570,7 @@ sim <- function(iter,
     from_cell = "A",
     to_cell = "B",
     qc_cellcount_cutoff = 0,
-    perm_yn = FALSE, #no holes in simulated data
+    perm_yn = FALSE,
     r_max = 200,
     inc = 1,
     image_dims = c(0, 1000, 0, 1000),
@@ -619,8 +604,8 @@ sim <- function(iter,
 sim_with_save <- function(iter,
                               nPatients,
                               nIm,
-                              sigmaB,
-                              sigmaB_diff,
+                              tauB,
+                              tauB_diff,
                               grid,
                               alpha,
                               B1,
@@ -629,7 +614,7 @@ sim_with_save <- function(iter,
                               seed,
                               progress_file,
                               nSim){
-  res <- sim(iter, nPatients, nIm, sigmaB, sigmaB_diff, grid, alpha, B1, B2, nthreads, seed)
+  res <- sim(iter, nPatients, nIm, tauB, tauB_diff, grid, alpha, B1, B2, nthreads, seed)
 
   #append progress
   attempt <- 1
@@ -675,7 +660,7 @@ clusterEvalQ(cl, { #load the necessary packages on the parallel workers
 clusterExport(cl, #export the necessary variables and functions to the parallel workers
               varlist = c(
                           #Variables
-                          "nPatients", "nIm", "sigmaB", "sigmaB_diff",
+                          "nPatients", "nIm", "tauB", "tauB_diff",
                           "grid", "alpha", "B1", "B2", "nthreads", "seed",
                           "nSim", "progress_file",
 
@@ -689,7 +674,7 @@ clusterExport(cl, #export the necessary variables and functions to the parallel 
 )
 
 res_list <- parLapplyLB(cl, iters, sim_with_save,
-                        nPatients = nPatients, nIm=nIm, sigmaB = sigmaB, sigmaB_diff=sigmaB_diff,
+                        nPatients = nPatients, nIm=nIm, tauB = tauB, tauB_diff=tauB_diff,
                         grid = grid, alpha = alpha, B1 = B1, B2 = B2,
                         nthreads = nthreads, seed=seed,
                         progress_file = progress_file, nSim = nSim)

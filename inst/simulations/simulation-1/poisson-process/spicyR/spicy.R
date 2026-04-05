@@ -6,7 +6,7 @@ seed <- 12345
 Rs <- seq(from = 0, to = 200, by = 1)
 parallel_backend <- BiocParallel::MulticoreParam(workers = 24)
 
-iters <- 1:100
+iters <- 1:500
 
 print('starting spicy()')
 Sys.time()
