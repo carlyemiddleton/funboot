@@ -100,7 +100,7 @@ sumfun_data_interaction <- funboot::preprocess_data(data=breastcancer_data,
                                                     from_cell=7, 
                                                     to_cell=3,
                                                     qc_cellcount_cutoff=20, 
-                                                    n_perm=5, 
+                                                    n_perm=2, 
                                                     perm_yn=TRUE,
                                                     r_max=500, 
                                                     inc=1, 
@@ -121,8 +121,8 @@ CB_interaction <- funboot::wildBS_CB(formula=outcome ~ 1,
                         func = function(Intercept){
                           Intercept
                         },
-                        B1=10,
-                        B2=10,
+                        B1=2,
+                        B2=2,
                         alpha=.05,
                         re=NULL,
                         nthreads = 1,
@@ -167,52 +167,44 @@ p + ggtitle("Colocalization Curve") +
 
 ```
 
-Because the confidence band crosses zero, the conclusion would be that a significant amount of interaction is present. (However, many more bootstrap samples are needed for accurate results.)  The above can also be repeated for the avoidance example.
+Because the confidence band crosses zero, the conclusion would be that a significant amount of interaction is present. (However, more bootstrap samples are needed for accurate results.)  The above can also be repeated for the avoidance example.
 
 Next, we incorporate covariates into the model:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, results='hide'}
-sumfun_data_covariates <- preprocess_data(data=breastcancer_data,
-                                           from_cell=7,
-                                           to_cell=3,
-                                           qc_cellcount_cutoff=20,
-                                           n_perm=5,
-                                           perm_yn=T,
-                                           r_max=500,
-                                           inc=1,
-                                           image_dims=c(0,1000,0,1000),
-                                           summary_function='L',
-                                           verbose=TRUE)
-#combine cell types 3,4,5,6 into 1 category
-#breastcancer_data$cell_type <- ifelse(breastcancer_data$cell_type %in% c(3:6), 3,
-#                                                       breastcancer_data$cell_type)
-spatialcov_data <- preprocess_data(data=breastcancer_data,
-                                   from_cell=7,
-                                   to_cell=7,
-                                   qc_cellcount_cutoff=20,
-                                   n_perm=5,
-                                   perm_yn=T,
-                                   r_max=500,
-                                   inc=1,
-                                   image_dims=c(0,1000,0,1000),
-                                   summary_function='L',
-                                   verbose=TRUE)
+##Compute \hat{L}_{Endo,T}(r), obtaining data from 76 images (image 249 has 0 type 3 cells, and 23 images were removed during qc)
+sumfun_data_covariates <- funboot::preprocess_data(data=breastcancer_data,
+                                                   from_cell=7, #Endothelial cells
+                                                   to_cell=3,   #T cells
+                                                   qc_cellcount_cutoff=20,
+                                                   n_perm=2,
+                                                   perm_yn=TRUE,
+                                                   r_max=500,
+                                                   inc=1,
+                                                   image_dims=c(0,1000,0,1000),
+                                                   summary_function='L',
+                                                   verbose=TRUE)
+##Compute \hat{L}_{Endo,Endo}(r), obtaining data from 48 images (52 images were removed during qc)
+spatialcov_data <- funboot::preprocess_data(data=breastcancer_data,
+                                            from_cell=7, #Endothelial cells
+                                            to_cell=7,   #Endothelial cells
+                                            qc_cellcount_cutoff=20,
+                                            n_perm=2,
+                                            perm_yn=TRUE,
+                                            r_max=500,
+                                            inc=1,
+                                            image_dims=c(0,1000,0,1000),
+                                            summary_function='L',
+                                            verbose=TRUE)
+#Retain just \hat{L}_{Endo,Endo}(r) and no other L curves
 names(spatialcov_data)[names(spatialcov_data)=='L_obs'] <- 'spatial_cov'
 spatialcov_data$L_expect <- spatialcov_data$L_pmean <- spatialcov_data$outcome <- NULL
+##Merge the two datasets together, resulting in data from 48 images
 sumfun_data_full_covariates <- merge(sumfun_data_covariates,
                                      spatialcov_data,
                                      by=c('image_number','r','patient_id','patient_age','tumor_grade'),
-                                     all=T)
-df <- data.frame(image_number = rep(unique(breastcancer_data$image_number), each=501),
-                 r = rep(0:500, length(unique(breastcancer_data$image_number)))
-                 )
-sumfun_data_full_covariates <- merge(df,
-                                     sumfun_data_full_covariates,
-                                     by=c('image_number','r'),
-                                     all=T)
-sumfun_data_full_covariates <- sumfun_data_full_covariates[!is.na(sumfun_data_full_covariates$outcome),] #Drop obs. with missing outcomes
-sumfun_data_full_covariates$spatial_cov <- ifelse(is.na(sumfun_data_full_covariates$spatial_cov), 0,
-                                                  sumfun_data_full_covariates$spatial_cov) #set L^{3,16}(r) = 0 when there are no type 16 cells
+                                     all=FALSE)
+##Add in indicator variables for grade
 sumfun_data_full_covariates$grade2 <- ifelse(sumfun_data_full_covariates$tumor_grade == '2', 1,
                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
                                                     0))
@@ -233,8 +225,8 @@ CB_beta4 <- wildBS_CB(formula=outcome ~ patient_age + grade2 + grade3 + spatial_
                       func = function(spatial_cov){
                         spatial_cov
                       },
-                      B1=10,
-                      B2=10,
+                      B1=2,
+                      B2=2,
                       alpha=.05,
                       re=NULL,
                       nthreads = 1,
@@ -258,7 +250,7 @@ sumfun_data <- preprocess_data(data=melanoma_data,
                                from_cell="CD8- T cell",
                                to_cell="CD8+ T cell",
                                qc_cellcount_cutoff=20,
-                               n_perm=5,
+                               n_perm=2,
                                perm_yn=TRUE,
                                r_max=500,
                                inc=1,
@@ -272,7 +264,7 @@ var_mat_data <- preprocess_data(melanoma_data,
                                 from_cell='CD8- T cell',
                                 to_cell='Vasculature',
                                 qc_cellcount_cutoff=20,
-                                n_perm=5,
+                                n_perm=2,
                                 perm_yn=TRUE,
                                 r_max=500,
                                 inc=1,
@@ -282,7 +274,7 @@ var_mat_data <- preprocess_data(melanoma_data,
 var_mat_data$patient_id <- as.factor(var_mat_data$patient_id)
 names(var_mat_data)[names(var_mat_data)=='L_obs'] <- 'var_mat'
 var_mat_data$L_expect <- var_mat_data$L_pmean <- var_mat_data$outcome <- NULL
-sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','patient_age'),all=T)
+sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','patient_age'),all=TRUE)
 sumfun_data_full$var_mat <- ifelse(is.na(sumfun_data_full$var_mat), 0, sumfun_data_full$var_mat)
 
 covar_list <- list(Intercept = rep(1, 501),
@@ -297,8 +289,8 @@ CB_avascular <- wildBS_CB(formula=outcome ~ var_mat + s(patient_id, bs = "re"),
                          func = function(Intercept, var_mat){
                            Intercept + var_mat
                          },
-                         B1=10,
-                         B2=10,
+                         B1=2,
+                         B2=2,
                          alpha=.05,
                          re='patient_id',
                          nthreads = 1,

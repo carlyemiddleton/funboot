@@ -57,14 +57,17 @@ preprocess_data <- function(data,
 
   Kdata <- K_pmean_vec <- NULL
   if(summary_function=='L'){
-    Ldata<- L_pmean_vec <- NULL
+    L_pmean_vec <- NULL
   }
   if(summary_function=='g'){
     gdata<- g_pmean_vec <- NULL
   }
   for(i in unique(data$image_number)){
-    if(sum(data$image_number == i & data$cell_type == from_cell)>qc_cellcount_cutoff & #quality control criteria
-       sum(data$image_number == i & data$cell_type == to_cell)>qc_cellcount_cutoff){
+    from_count <- sum(data$image_number == i & data$cell_type == from_cell)
+    to_count <- sum(data$image_number == i & data$cell_type == to_cell)
+
+    if(from_count > qc_cellcount_cutoff &
+       to_count > qc_cellcount_cutoff){ #quality control criteria
       qc_data <- data[data$image_number == i,]
       if(perm_yn==TRUE){
         permuted_K <- NULL
@@ -105,44 +108,90 @@ preprocess_data <- function(data,
       Kdata_temp <- data.frame(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ), image=i)
       names(Kdata_temp) <- c('r','K_expect','K_obs','image_number')
       Kdata <- rbind(Kdata, Kdata_temp)
-      if(summary_function=='L'){
-        Ldata <- Kdata
-        Ldata$K_expect <- sqrt(Ldata$K_expect/pi)
-        Ldata$K_obs <- sqrt(Ldata$K_obs/pi)
-        names(Ldata) <- c('r','L_expect','L_obs','image_number')
-      }
       if(summary_function=='g'){
         gdata_temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ),
                                                        method='c', divisor ="d"), image=i)
         names(gdata_temp) <- c('r','g_expect','g_obs','image_number')
         gdata <- rbind(gdata, gdata_temp)
       }
+    }else if(from_count > qc_cellcount_cutoff &
+             to_count == 0){
+      r_grid <- seq(0, r_max, by = inc)
+
+      Kdata_temp <- data.frame(
+        r = r_grid,
+        K_expect = NA_real_,
+        K_obs = 0,
+        image_number = i
+      )
+      Kdata <- rbind(Kdata, Kdata_temp)
+
+      if(summary_function=='g'){
+        gdata_temp <- data.frame(
+          r = r_grid,
+          g_expect = NA_real_,
+          g_obs = 0,
+          image_number = i
+        )
+        gdata <- rbind(gdata, gdata_temp)
+      }
+
+      if(perm_yn==TRUE){
+        K_pmean_vec <- c(K_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        if(summary_function=='L'){
+          L_pmean_vec <- c(L_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+        if(summary_function=='g'){
+          g_pmean_vec <- c(g_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+      }
     }
   }
   #Calculate the outcome variable
   if(summary_function=='L'){
-    sumfun_data <- Ldata
-    if(perm_yn==TRUE){sumfun_data$L_pmean <- L_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$L_obs - sumfun_data$L_pmean
+    sumfun_data <- Kdata
+    sumfun_data$K_expect <- sqrt(sumfun_data$K_expect/pi)
+    sumfun_data$K_obs <- sqrt(sumfun_data$K_obs/pi)
+    names(sumfun_data) <- c('r','L_expect','L_obs','image_number')
+    if(perm_yn==TRUE){
+      sumfun_data$L_pmean <- L_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_pmean) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_pmean)
     }else{
-      sumfun_data$L_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$L_obs - sumfun_data$L_expect}
+      sumfun_data$L_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_expect) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_expect)
+    }
     names(sumfun_data) <- c('r','L_expect','L_obs','image_number','L_pmean','outcome')
   }else if(summary_function=='g'){
     sumfun_data <- gdata
-    if(perm_yn==TRUE){sumfun_data$g_pmean <- g_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$g_obs - sumfun_data$g_pmean
+    if(perm_yn==TRUE){
+      sumfun_data$g_pmean <- g_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_pmean) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_pmean)
     }else{
-      sumfun_data$g_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$g_obs - sumfun_data$g_expect}
+      sumfun_data$g_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_expect) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_expect)
+    }
     names(sumfun_data) <- c('r','g_expect','g_obs','image_number','g_pmean','outcome')
   }else{
     sumfun_data <- Kdata
-    if(perm_yn==TRUE){sumfun_data$K_pmean <- K_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$K_obs - sumfun_data$K_pmean
+    if(perm_yn==TRUE){
+      sumfun_data$K_pmean <- K_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_pmean) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_pmean)
     }else{
-      sumfun_data$K_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$K_obs - sumfun_data$K_expect}
+      sumfun_data$K_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_expect) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_expect)
+    }
     names(sumfun_data) <- c('r','K_expect','K_obs','image_number','K_pmean','outcome')
   }
   covariate_df <- data

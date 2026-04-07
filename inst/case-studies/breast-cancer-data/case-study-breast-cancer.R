@@ -53,14 +53,17 @@ preprocess_data <- function(data,
 
   Kdata <- K_pmean_vec <- NULL
   if(summary_function=='L'){
-    Ldata<- L_pmean_vec <- NULL
+    L_pmean_vec <- NULL
   }
   if(summary_function=='g'){
     gdata<- g_pmean_vec <- NULL
   }
   for(i in unique(data$image_number)){
-    if(sum(data$image_number == i & data$cell_type == from_cell)>qc_cellcount_cutoff & #quality control criteria
-       sum(data$image_number == i & data$cell_type == to_cell)>qc_cellcount_cutoff){
+    from_count <- sum(data$image_number == i & data$cell_type == from_cell)
+    to_count <- sum(data$image_number == i & data$cell_type == to_cell)
+
+    if(from_count > qc_cellcount_cutoff &
+       to_count > qc_cellcount_cutoff){ #quality control criteria
       qc_data <- data[data$image_number == i,]
       if(perm_yn==TRUE){
         permuted_K <- NULL
@@ -101,44 +104,90 @@ preprocess_data <- function(data,
       Kdata_temp <- data.frame(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ), image=i)
       names(Kdata_temp) <- c('r','K_expect','K_obs','image_number')
       Kdata <- rbind(Kdata, Kdata_temp)
-      if(summary_function=='L'){
-        Ldata <- Kdata
-        Ldata$K_expect <- sqrt(Ldata$K_expect/pi)
-        Ldata$K_obs <- sqrt(Ldata$K_obs/pi)
-        names(Ldata) <- c('r','L_expect','L_obs','image_number')
-      }
       if(summary_function=='g'){
         gdata_temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ),
                                                        method='c', divisor ="d"), image=i)
         names(gdata_temp) <- c('r','g_expect','g_obs','image_number')
         gdata <- rbind(gdata, gdata_temp)
       }
+    }else if(from_count > qc_cellcount_cutoff &
+             to_count == 0){
+      r_grid <- seq(0, r_max, by = inc)
+
+      Kdata_temp <- data.frame(
+        r = r_grid,
+        K_expect = NA_real_,
+        K_obs = 0,
+        image_number = i
+      )
+      Kdata <- rbind(Kdata, Kdata_temp)
+
+      if(summary_function=='g'){
+        gdata_temp <- data.frame(
+          r = r_grid,
+          g_expect = NA_real_,
+          g_obs = 0,
+          image_number = i
+        )
+        gdata <- rbind(gdata, gdata_temp)
+      }
+
+      if(perm_yn==TRUE){
+        K_pmean_vec <- c(K_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        if(summary_function=='L'){
+          L_pmean_vec <- c(L_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+        if(summary_function=='g'){
+          g_pmean_vec <- c(g_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+      }
     }
   }
   #Calculate the outcome variable
   if(summary_function=='L'){
-    sumfun_data <- Ldata
-    if(perm_yn==TRUE){sumfun_data$L_pmean <- L_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$L_obs - sumfun_data$L_pmean
+    sumfun_data <- Kdata
+    sumfun_data$K_expect <- sqrt(sumfun_data$K_expect/pi)
+    sumfun_data$K_obs <- sqrt(sumfun_data$K_obs/pi)
+    names(sumfun_data) <- c('r','L_expect','L_obs','image_number')
+    if(perm_yn==TRUE){
+      sumfun_data$L_pmean <- L_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_pmean) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_pmean)
     }else{
-      sumfun_data$L_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$L_obs - sumfun_data$L_expect}
+      sumfun_data$L_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_expect) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_expect)
+    }
     names(sumfun_data) <- c('r','L_expect','L_obs','image_number','L_pmean','outcome')
   }else if(summary_function=='g'){
     sumfun_data <- gdata
-    if(perm_yn==TRUE){sumfun_data$g_pmean <- g_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$g_obs - sumfun_data$g_pmean
+    if(perm_yn==TRUE){
+      sumfun_data$g_pmean <- g_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_pmean) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_pmean)
     }else{
-      sumfun_data$g_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$g_obs - sumfun_data$g_expect}
+      sumfun_data$g_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_expect) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_expect)
+    }
     names(sumfun_data) <- c('r','g_expect','g_obs','image_number','g_pmean','outcome')
   }else{
     sumfun_data <- Kdata
-    if(perm_yn==TRUE){sumfun_data$K_pmean <- K_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$K_obs - sumfun_data$K_pmean
+    if(perm_yn==TRUE){
+      sumfun_data$K_pmean <- K_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_pmean) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_pmean)
     }else{
-      sumfun_data$K_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$K_obs - sumfun_data$K_expect}
+      sumfun_data$K_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_expect) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_expect)
+    }
     names(sumfun_data) <- c('r','K_expect','K_obs','image_number','K_pmean','outcome')
   }
   covariate_df <- data
@@ -686,55 +735,96 @@ dev.off()
 
 #-------------- Model with covariates ---------------------------------------------------------------------------------------------
 set.seed(12345)
-
-sumfun_data_covariates <- preprocess_data(data=breastcancer_data,
-                                           from_cell=7,
-                                           to_cell=3,
-                                           qc_cellcount_cutoff=20,
-                                           n_perm=100,
-                                           perm_yn=T,
-                                           r_max=500,
-                                           inc=1,
-                                           image_dims=c(0,1000,0,1000),
-                                           summary_function='L',
-                                           verbose=TRUE)
-#combine cell types 3,4,5,6 into 1 category
-#breastcancer_data$cell_type <- ifelse(breastcancer_data$cell_type %in% c(3:6), 3,
-#                                                       breastcancer_data$cell_type)
-spatialcov_data <- preprocess_data(data=breastcancer_data,
-                                   from_cell=7,
-                                   to_cell=7,
-                                   qc_cellcount_cutoff=20,
-                                   n_perm=100,
-                                   perm_yn=T,
-                                   r_max=500,
-                                   inc=1,
-                                   image_dims=c(0,1000,0,1000),
-                                   summary_function='L',
-                                   verbose=TRUE)
+##Compute \hat{L}_{Endo,T}(r), obtaining data from 76 images (image 249 has 0 type 3 cells, and 23 images were removed during qc)
+sumfun_data_covariates <- funboot::preprocess_data(data=breastcancer_data,
+                                                   from_cell=7, #Endothelial cells
+                                                   to_cell=3,   #T cells
+                                                   qc_cellcount_cutoff=20,
+                                                   n_perm=100,
+                                                   perm_yn=TRUE,
+                                                   r_max=500,
+                                                   inc=1,
+                                                   image_dims=c(0,1000,0,1000),
+                                                   summary_function='L',
+                                                   verbose=TRUE)
+##Compute \hat{L}_{Endo,Endo}(r), obtaining data from 48 images (52 images were removed during qc)
+spatialcov_data <- funboot::preprocess_data(data=breastcancer_data,
+                                            from_cell=7, #Endothelial cells
+                                            to_cell=7,   #Endothelial cells
+                                            qc_cellcount_cutoff=20,
+                                            n_perm=100,
+                                            perm_yn=TRUE,
+                                            r_max=500,
+                                            inc=1,
+                                            image_dims=c(0,1000,0,1000),
+                                            summary_function='L',
+                                            verbose=TRUE)
+#Retain just \hat{L}_{Endo,Endo}(r) and no other L curves
 names(spatialcov_data)[names(spatialcov_data)=='L_obs'] <- 'spatial_cov'
 spatialcov_data$L_expect <- spatialcov_data$L_pmean <- spatialcov_data$outcome <- NULL
+##Merge the two datasets together, resulting in data from 48 images
 sumfun_data_full_covariates <- merge(sumfun_data_covariates,
                                      spatialcov_data,
                                      by=c('image_number','r','patient_id','patient_age','tumor_grade'),
-                                     all=T)
-df <- data.frame(image_number = rep(unique(breastcancer_data$image_number), each=501),
-                 r = rep(0:500, length(unique(breastcancer_data$image_number)))
-                 )
-sumfun_data_full_covariates <- merge(df,
-                                     sumfun_data_full_covariates,
-                                     by=c('image_number','r'),
-                                     all=T)
-sumfun_data_full_covariates <- sumfun_data_full_covariates[!is.na(sumfun_data_full_covariates$outcome),] #Drop obs. with missing outcomes
-sumfun_data_full_covariates$spatial_cov <- ifelse(is.na(sumfun_data_full_covariates$spatial_cov), 0,
-                                                  sumfun_data_full_covariates$spatial_cov) #set L^{3,16}(r) = 0 when there are no type 16 cells
+                                     all=FALSE)
+##Add in indicator variables for grade
 sumfun_data_full_covariates$grade2 <- ifelse(sumfun_data_full_covariates$tumor_grade == '2', 1,
                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
                                                     0))
 sumfun_data_full_covariates$grade3 <- ifelse(sumfun_data_full_covariates$tumor_grade == '3', 1,
                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
                                                     0))
-save(sumfun_data_full_covariates, file='sumfun_data_full_covariates.RData')
+
+# set.seed(12345)
+#
+# sumfun_data_covariates <- preprocess_data(data=breastcancer_data,
+#                                            from_cell=7,
+#                                            to_cell=3,
+#                                            qc_cellcount_cutoff=20,
+#                                            n_perm=100,
+#                                            perm_yn=T,
+#                                            r_max=500,
+#                                            inc=1,
+#                                            image_dims=c(0,1000,0,1000),
+#                                            summary_function='L',
+#                                            verbose=TRUE)
+# #combine cell types 3,4,5,6 into 1 category
+# #breastcancer_data$cell_type <- ifelse(breastcancer_data$cell_type %in% c(3:6), 3,
+# #                                                       breastcancer_data$cell_type)
+# spatialcov_data <- preprocess_data(data=breastcancer_data,
+#                                    from_cell=7,
+#                                    to_cell=7,
+#                                    qc_cellcount_cutoff=20,
+#                                    n_perm=100,
+#                                    perm_yn=T,
+#                                    r_max=500,
+#                                    inc=1,
+#                                    image_dims=c(0,1000,0,1000),
+#                                    summary_function='L',
+#                                    verbose=TRUE)
+# names(spatialcov_data)[names(spatialcov_data)=='L_obs'] <- 'spatial_cov'
+# spatialcov_data$L_expect <- spatialcov_data$L_pmean <- spatialcov_data$outcome <- NULL
+# sumfun_data_full_covariates <- merge(sumfun_data_covariates,
+#                                      spatialcov_data,
+#                                      by=c('image_number','r','patient_id','patient_age','tumor_grade'),
+#                                      all=T)
+# df <- data.frame(image_number = rep(unique(breastcancer_data$image_number), each=501),
+#                  r = rep(0:500, length(unique(breastcancer_data$image_number)))
+#                  )
+# sumfun_data_full_covariates <- merge(df,
+#                                      sumfun_data_full_covariates,
+#                                      by=c('image_number','r'),
+#                                      all=T)
+# sumfun_data_full_covariates <- sumfun_data_full_covariates[!is.na(sumfun_data_full_covariates$outcome),] #Drop obs. with missing outcomes
+# sumfun_data_full_covariates$spatial_cov <- ifelse(is.na(sumfun_data_full_covariates$spatial_cov), 0,
+#                                                   sumfun_data_full_covariates$spatial_cov) #set L^{3,16}(r) = 0 when there are no type 16 cells
+# sumfun_data_full_covariates$grade2 <- ifelse(sumfun_data_full_covariates$tumor_grade == '2', 1,
+#                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
+#                                                     0))
+# sumfun_data_full_covariates$grade3 <- ifelse(sumfun_data_full_covariates$tumor_grade == '3', 1,
+#                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
+#                                                     0))
+# save(sumfun_data_full_covariates, file='sumfun_data_full_covariates.RData')
 
 ##Get CBs for each coefficient
 CB_beta0 <- wildBS_CB(formula=outcome ~ patient_age + grade2 + grade3 + spatial_cov,
