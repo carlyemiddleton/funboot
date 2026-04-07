@@ -1,20 +1,20 @@
-#' @title Preprocesses raw data
+#' @title Preprocesses single-cell spatial data for colocalization analysis
 #'
-#' @description Preprocess raw data by: 1.) filtering out sparse images using **qc_cellcount_cutoff**, 2.) calculating the desired spatial summary function, 3.) calculating the outcome variable to be used in *pffr()*
+#' @description Discards sparse images, calculates the selected spatial summary function, and calculates the colocalization curve to be used as the outcome in downstream functional regression.
 #'
-#' @param data Data frame containing the variables **patient_id**, **image_number**, **cell_id**, **cell_x**, **cell_y**, **cell_type**, and any covariates to be adjusted for, as in the example data.
+#' @param data Data frame containing the variables `patient_id`, `image_number`, `cell_id`, `cell_x`, `cell_y`, `cell_type`, and any covariates to be adjusted for, as in the example data.
 #' @param from_cell The "from" cell type to be used in the calculation of the spatial summary function
 #' @param to_cell The "to" cell type to be used in the calculation of the spatial summary function
-#' @param qc_cellcount_cutoff If an image has **qc_cellcount_cutoff** or less "to" cells, or **qc_cellcount_cutoff** or less "from" cells, the image is excluded from the calculation of the spatial summary function.  (Analogous to SpaceANOVA's **Hard_ths** parameter.)
-#' @param n_perm The number of permutations to use in the simulation envelope procedure, as long as **perm_yn**=TRUE.
-#' @param perm_yn If TRUE, the permuted mean of the spatial summary function is calculated using the permutation envelope procedure described in the [Wilson paper](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900).  The outcome variable to be used in *pffr()* is then calculated by subtracting the value of the permuted mean from the value of the observed spatial summary function.  If *perm_yn*=FALSE, the outcome variable is calculated by subtracting the summary function's expected value assuming complete spatial randomness from the observed spatial summary function.
+#' @param qc_cellcount_cutoff If an image has `qc_cellcount_cutoff` or less "to" cells, or `qc_cellcount_cutoff` or less "from" cells, the image is excluded from the calculation of the spatial summary function.  (Similar to SpaceANOVA's `Hard_ths` parameter.)
+#' @param n_perm The number of permutations to use in the permutation adjustment to the colocalization curve, if `perm_yn = TRUE`.
+#' @param perm_yn If `TRUE`, the permuted mean of the spatial summary function is calculated using the procedure described in the [Wilson paper](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900).  The colocalization curve is then calculated by subtracting the value of the permuted mean from the value of the observed spatial summary function.  If `perm_yn = FALSE`, the curve is calculated by subtracting the summary function's expected value assuming complete spatial randomness from the observed spatial summary function.
 #' @param r_max The maximum radius at which the observed spatial summary function should be evaluated.
-#' @param inc The increment of units by which the spatial summary function should be calculated.  For example, if **r_max**=200 and **inc**=1, the function is evaluated on the grid 0:200.
-#' @param image_dims Vector containing the dimensions of the images on which cell locations are recorded, structured as c(x_min, x_max, y_min, y_max).  All images must be of the same dimension.
-#' @param summary_function The spatial summary function to be calculated.  Must be one of 'K', 'L', or 'g'.
-#' @param verbose If TRUE, prints progress
+#' @param inc The increment of units by which the spatial summary function should be evaluated.  For example, if `r_max = 200` and `inc=1`, the spatial summary function is evaluated over the grid `0:200`.
+#' @param image_dims Vector containing the dimensions of the images in the observed data. For example, `c(x_min, x_max, y_min, y_max)`.  All images must be of the same dimension.
+#' @param summary_function The spatial summary function to be calculated.  Must be one of `K`, `L`, or `g`.
+#' @param verbose If `TRUE`, prints progress
 #'
-#' @return A data frame containing values of the observed and expected spatial summary function, as well as values of the covariates from the input dataset. L_pmean = permuted mean from the permutation envelope, outcome = L_expect - L_obs if **perm_yn**=FALSE, or L_expect - L_pmean if **perm_yn**=TRUE.
+#' @return A data frame containing values of the observed and expected spatial summary function for each image at each radius, as well as values of the covariates carried forward from the input data. Depending on `summary_function`, the output includes `K_*`, `L_*`, or `g_*` columns. When `perm_yn = TRUE`, the output also includes the corresponding permuted mean column (`K_pmean`, `L_pmean`, or `g_pmean`). The `outcome` column is defined as the observed summary function minus the expected summary function when `perm_yn = FALSE`, or the observed summary function minus the permuted mean when `perm_yn = TRUE`.
 #'
 #' @export
 

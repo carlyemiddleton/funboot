@@ -1,11 +1,11 @@
 #' @title Plots the locations of cells within a set of images, colored by cell phenotype.
 #'
-#' @param data Data frame containing the cell locations and cell types to be plotted.  It should contain the variables *image_number,* *cell_x*, *cell_y*, and *cell_type* as in the example data.
-#' @param images_to_plot Vector containing the values of *image_number* corresponding to the images to be plotted. For example, 1:10
-#' @param cell_types_to_plot Vector containing the values of *cell_type* corresponding to the cell types to be plotted with color.  For example, c(7,3,9,16)
-#' @param palette Vector containing assignments of *cell_type* values to their desired color.  One element should be titled "Other" and specify the desired color for all other cells.  For example, c('Other' = "gray", '7' = 'gold', '3' = "darkgreen", '9' = 'skyblue', '16'='cyan4')
+#' @param data Data frame containing the cell locations and cell types to be plotted.  It should contain the variables `image_number`, `cell_x`, `cell_y`, and `cell_type` as in the example data.
+#' @param images_to_plot Vector containing the values of `image_number` corresponding to the images to be plotted. For example, `1:10`
+#' @param cell_types_to_plot Vector containing the values of `cell_type` corresponding to the cell types to be plotted with color.  For example, `c(7,3,9,16)`
+#' @param palette Vector containing assignments of `cell_type` values to their desired color.  One element should be titled `"Other"` and specify the desired color for all other cells.  For example, `c("Other" = "gray", "7" = "gold", "3" = "darkgreen", '9' = "skyblue", "16"="cyan4")`.
 #'
-#' @return A list containing ggplot objects for each image to be plotted
+#' @return A list containing `ggplot` objects for each image to be plotted
 #'
 #' @export
 

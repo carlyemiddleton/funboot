@@ -2,16 +2,16 @@
 % Please edit documentation in R/plot_wildBS_CB.R
 \name{plot_wildBS_CB}
 \alias{plot_wildBS_CB}
-\title{Plots wild bootstrap confidence bands obtained from \emph{funboot::EY_CB()}}
+\title{Plots target curve estimates and wild bootstrap confidence bands obtained from \code{funboot::wildBS_CB()}}
 \usage{
 plot_wildBS_CB(CB_object)
 }
 \arguments{
-\item{CB_object}{List obtained from the output of \emph{funboot::EY_CB()}}
+\item{CB_object}{List obtained from the output of \code{funboot::wildBS_CB()}}
 }
 \value{
-A \emph{ggplot} object
+A \code{ggplot} object showing the estimated target curve and its wild bootstrap confidence band
 }
 \description{
-Plots wild bootstrap confidence bands obtained from \emph{funboot::EY_CB()}
+Plots target curve estimates and wild bootstrap confidence bands obtained from \code{funboot::wildBS_CB()}
 }

@@ -2,22 +2,22 @@
 % Please edit documentation in R/utils.R
 \name{fit_model}
 \alias{fit_model}
-\title{Fits a \emph{pffr()} model to spatial summary function data}
+\title{Fits a concurrent functional regression model to spatial summary function data}
 \usage{
 fit_model(formula, data, spatial_covars = NULL, nthreads = 1)
 }
 \arguments{
-\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model with special terms as in \emph{mgcv's} "bam"}
+\item{formula}{An object of class \code{formula}.  The formula passed to \code{refund::pffr()} with special terms as in \code{mgcv::gam()}}
 
-\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+\item{data}{A data frame obtained from the output of \code{funboot::preprocess_data()}}
 
-\item{spatial_covars}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
+\item{spatial_covars}{A character vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, \code{c("var1","var2")}.}
 
-\item{nthreads}{Number of threads to use in the model fit}
+\item{nthreads}{Number of parallel threads to use in the call to \code{refund::pffr()}}
 }
 \value{
-A \emph{pffr()} model object
+A \code{refund::pffr()} model object
 }
 \description{
-Fits a \emph{pffr()} model to spatial summary function data
+Fits a concurrent functional regression model to spatial summary function data
 }

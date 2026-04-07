@@ -2,7 +2,7 @@
 % Please edit documentation in R/wildBS_CB.R
 \name{wildBS_CB}
 \alias{wildBS_CB}
-\title{Calculates wild bootstrap confidence bands for \emph{pffr()} model coefficients}
+\title{Calculates wild bootstrap-based confidence bands for linear combinations of functional regression coefficients}
 \usage{
 wildBS_CB(
   formula,
@@ -17,42 +17,42 @@ wildBS_CB(
   alpha = 0.05,
   re = NULL,
   id,
-  nthreads = 1,
-  inner_SEs_from_package = FALSE
+  nthreads = 1
 )
 }
 \arguments{
-\item{formula}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model with special terms as in \emph{mgcv's} GAM}
+\item{formula}{An object of class \code{formula}.  The formula passed to \code{refund::pffr()} with special terms as in \code{mgcv::gam()}}
 
-\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+\item{data}{A data frame obtained from the output of \code{funboot::preprocess_data()}}
 
-\item{spatial_covars}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
+\item{spatial_covars}{A character vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, \code{c("var1","var2")}}
 
-\item{target}{Number of outer bootstrap samples}
+\item{target}{A character vector containing the names of the model terms to be combined to form the target curve for which to construct the confidence band around.  For example, \code{c("Intercept", "var1", "var2")}}
 
-\item{form}{Number of outer bootstrap samples}
+\item{form}{A character vector of equal length as \code{target}, with each entry corresponding to an entry in \code{target}.  Each entry must be either \code{"coef"} or \code{"term"}, where \code{"coef"} uses the estimated coefficient function directly and \code{"term"} multiplies the coefficient function by the corresponding value in \code{covar_list}.}
 
-\item{covar_list}{Number of outer bootstrap samples}
+\item{covar_list}{A named list giving the covariate values used when constructing target-curve components with \code{form = "term"}. The names of \code{covar_list} must match \code{target}.  For example, if \code{target = c("Intercept", "var1", "var2")}, then \code{covar_list} could be \code{list(Intercept = rep(1, length(v1)), var1 = v1, var2 = v2)}, where \code{v1} and \code{v2} each have the length of the grid of evaluation radii.}
 
-\item{func}{Number of outer bootstrap samples}
+\item{func}{A function specifying how the terms in \code{target} are combined to form the target curve. The argument names of \code{func} must match \code{target}. For example, if \code{target = c("Intercept", "var1", "var2")}, then \code{func} might be \code{function(Intercept, var1, var2){Intercept + var1 + var2}}.}
 
 \item{B1}{Number of outer bootstrap samples}
 
 \item{B2}{Number of inner bootstrap samples}
 
-\item{alpha}{Desired significance level for the confidence band. For example, 0.05}
+\item{alpha}{Desired significance level for the confidence band. e.g., \code{0.05}.}
 
-\item{re}{Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')}
+\item{re}{Name of variable for which to fit a random intercept.  For example, \code{"patient_id"}.}
 
-\item{id}{Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')}
+\item{id}{Name of the patient ID variable. e.g., \code{"patient_id"}.}
 
-\item{nthreads}{Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')}
-
-\item{inner_SEs_from_package}{Whether or not to replace the inner bootstrap loop standard errors with \emph{pffr()}'s estimated standard errors of the coefficient function.  Should only be used if the target quantity for the confidence band is a single model coefficient and the data contain one image per patient.}
+\item{nthreads}{Number of parallel threads to use in the call to \code{refund::pffr()}}
 }
 \value{
-A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard errors from the \emph{pffr()} output and additional intermittent variables used in the calculation of the confidence band.
+A list containing, for each evaluation radius: the lower and upper bounds of the confidence band, estimated values of the target curve, and the standard deviation of outer bootstrap target curve estimates.  Also returns the grid of evaluation radii, the critical value, and the bootstrap distribution of the statistic \code{M}.
 }
 \description{
-Calculates wild bootstrap confidence bands for \emph{pffr()} model coefficients
+Calculates wild bootstrap-based confidence bands for linear combinations of functional regression coefficients
+}
+\seealso{
+\code{\link[refund:pffr]{refund::pffr()}}, \code{\link[mgcv:gam]{mgcv::gam()}}
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/preprocess_data.R
 \name{preprocess_data}
 \alias{preprocess_data}
-\title{Preprocesses raw data}
+\title{Preprocesses single-cell spatial data for colocalization analysis}
 \usage{
 preprocess_data(
   data,
@@ -19,31 +19,31 @@ preprocess_data(
 )
 }
 \arguments{
-\item{data}{Data frame containing the variables \strong{patient_id}, \strong{image_number}, \strong{cell_id}, \strong{cell_x}, \strong{cell_y}, \strong{cell_type}, and any covariates to be adjusted for, as in the example data.}
+\item{data}{Data frame containing the variables \code{patient_id}, \code{image_number}, \code{cell_id}, \code{cell_x}, \code{cell_y}, \code{cell_type}, and any covariates to be adjusted for, as in the example data.}
 
 \item{from_cell}{The "from" cell type to be used in the calculation of the spatial summary function}
 
 \item{to_cell}{The "to" cell type to be used in the calculation of the spatial summary function}
 
-\item{qc_cellcount_cutoff}{If an image has \strong{qc_cellcount_cutoff} or less "to" cells, or \strong{qc_cellcount_cutoff} or less "from" cells, the image is excluded from the calculation of the spatial summary function.  (Analogous to SpaceANOVA's \strong{Hard_ths} parameter.)}
+\item{qc_cellcount_cutoff}{If an image has \code{qc_cellcount_cutoff} or less "to" cells, or \code{qc_cellcount_cutoff} or less "from" cells, the image is excluded from the calculation of the spatial summary function.  (Similar to SpaceANOVA's \code{Hard_ths} parameter.)}
 
-\item{n_perm}{The number of permutations to use in the simulation envelope procedure, as long as \strong{perm_yn}=TRUE.}
+\item{n_perm}{The number of permutations to use in the permutation adjustment to the colocalization curve, if \code{perm_yn = TRUE}.}
 
-\item{perm_yn}{If TRUE, the permuted mean of the spatial summary function is calculated using the permutation envelope procedure described in the \href{https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900}{Wilson paper}.  The outcome variable to be used in \emph{pffr()} is then calculated by subtracting the value of the permuted mean from the value of the observed spatial summary function.  If \emph{perm_yn}=FALSE, the outcome variable is calculated by subtracting the summary function's expected value assuming complete spatial randomness from the observed spatial summary function.}
+\item{perm_yn}{If \code{TRUE}, the permuted mean of the spatial summary function is calculated using the procedure described in the \href{https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900}{Wilson paper}.  The colocalization curve is then calculated by subtracting the value of the permuted mean from the value of the observed spatial summary function.  If \code{perm_yn = FALSE}, the curve is calculated by subtracting the summary function's expected value assuming complete spatial randomness from the observed spatial summary function.}
 
 \item{r_max}{The maximum radius at which the observed spatial summary function should be evaluated.}
 
-\item{inc}{The increment of units by which the spatial summary function should be calculated.  For example, if \strong{r_max}=200 and \strong{inc}=1, the function is evaluated on the grid 0:200.}
+\item{inc}{The increment of units by which the spatial summary function should be evaluated.  For example, if \code{r_max = 200} and \code{inc=1}, the spatial summary function is evaluated over the grid \code{0:200}.}
 
-\item{image_dims}{Vector containing the dimensions of the images on which cell locations are recorded, structured as c(x_min, x_max, y_min, y_max).  All images must be of the same dimension.}
+\item{image_dims}{Vector containing the dimensions of the images in the observed data. For example, \code{c(x_min, x_max, y_min, y_max)}.  All images must be of the same dimension.}
 
-\item{summary_function}{The spatial summary function to be calculated.  Must be one of 'K', 'L', or 'g'.}
+\item{summary_function}{The spatial summary function to be calculated.  Must be one of \code{K}, \code{L}, or \code{g}.}
 
-\item{verbose}{If TRUE, prints progress}
+\item{verbose}{If \code{TRUE}, prints progress}
 }
 \value{
-A data frame containing values of the observed and expected spatial summary function, as well as values of the covariates from the input dataset. L_pmean = permuted mean from the permutation envelope, outcome = L_expect - L_obs if \strong{perm_yn}=FALSE, or L_expect - L_pmean if \strong{perm_yn}=TRUE.
+A data frame containing values of the observed and expected spatial summary function for each image at each radius, as well as values of the covariates carried forward from the input data. Depending on \code{summary_function}, the output includes \verb{K_*}, \verb{L_*}, or \verb{g_*} columns. When \code{perm_yn = TRUE}, the output also includes the corresponding permuted mean column (\code{K_pmean}, \code{L_pmean}, or \code{g_pmean}). The \code{outcome} column is defined as the observed summary function minus the expected summary function when \code{perm_yn = FALSE}, or the observed summary function minus the permuted mean when \code{perm_yn = TRUE}.
 }
 \description{
-Preprocess raw data by: 1.) filtering out sparse images using \strong{qc_cellcount_cutoff}, 2.) calculating the desired spatial summary function, 3.) calculating the outcome variable to be used in \emph{pffr()}
+Discards sparse images, calculates the selected spatial summary function, and calculates the colocalization curve to be used as the outcome in downstream functional regression.
 }

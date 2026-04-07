@@ -3,7 +3,8 @@ library(parallel)
 #------------ Setup ----------------------------------------------------------------------------------------------
 nCores <- 24
 nthreads <- 1
-B1   <- 1000
+B1 <- 50
+B2 <- 50
 alpha <- 0.05
 seed <- 12345
 
@@ -196,16 +197,6 @@ extract_target_curve <- function(model,
   return(unname(do.call(func, components)))
 }
 
-extract_package_SEs <- function(name, model, grid) {
-  sm <- stats::coef(model, n1 = length(grid))$smterms
-  if (name %in% names(sm)) result <- sm[[name]]$coef$se
-  ind <- grep(name, names(sm), value = TRUE)
-  if (length(ind) == 1) result <- sm[[ind]]$coef$se
-  if (length(ind) > 1) stop("Multiple smooth terms match for ", name)
-  if (length(ind) == 0)stop("No smooth term found matching ", name)
-  return(result)
-}
-
 get_fixed_and_re <- function(model, n_Im_total, grid, id) {
   Tm <- mgcv::predict.gam(model, type = "terms")
   nm <- colnames(Tm)
@@ -228,12 +219,11 @@ wildBS_CB <- function(formula,
                       covar_list=list(),
                       func,
                       B1,
-                      B2=NULL,
+                      B2,
                       alpha=.05,
                       re=NULL,
                       id,
-                      nthreads = 1,
-                      inner_SEs_from_package=FALSE){
+                      nthreads = 1){
 
   ####################
   ## Format dataset ##
@@ -305,26 +295,6 @@ wildBS_CB <- function(formula,
                                        covar_list = covar_list,
                                        func=func)
 
-  ## Get package SE's
-  SE_pkg_orig <- NULL
-  if (inner_SEs_from_package==TRUE) {
-    if (length(target) != 1) {
-      stop("inner_SEs_from_package cannot be used when target has length greater than 1.")
-    }
-    if (any(form != "coef")) {
-      stop("inner_SEs_from_package can only be used if form = 'coef'. ")
-    }
-    if (n_patients != n_Im_total) {
-      stop("inner_SEs_from_package cannot be used with multiple images per subject.")
-    }
-    if (!is.null(re)) {
-      stop("inner_SEs_from_package cannot be used with random intercept models.")
-    }
-
-    SE_pkg_orig <- extract_package_SEs(name = target, model = pffrmodel, grid = grid)
-    SE_pkg_orig <- pmax(SE_pkg_orig, 1e-8) # avoid division by 0
-  }
-
 
   ###########################
   ## Outer bootstrap layer ##
@@ -384,64 +354,52 @@ wildBS_CB <- function(formula,
     ## Inner bootstrap layer ##
     ###########################
 
-    ##If inner_SEs_from_package == TRUE, skip the inner layer and use pffr()'s package SEs instead:
-    if (inner_SEs_from_package==TRUE) {
-      SEs_inner <- extract_package_SEs(name = target, model = pffrmodel_bs, grid = grid)
-      SEs_inner <- pmax(SEs_inner, 1e-8) #avoid potential division by 0
-      M[b1] <- max(abs((target_curve_bs - target_curve) / SEs_inner))
-      target_curve_outer[b1, ] <- target_curve_bs
+    #Image-level multipliers
+    c_img_bs <- 2 * stats::rbinom(n_Im_total * B2, size = 1, prob = .5) - 1 #1 or -1
+    c_img_bs <- matrix(c_img_bs, nrow = n_Im_total, ncol = B2)
+    #Patient-level multipliers
+    if(!is.null(re)){
+      c_patient_bs <- 2 * stats::rbinom(n_patients * B2, size = 1, prob = .5) - 1 #1 or -1
+      c_patient_bs <- matrix(c_patient_bs, nrow = n_patients, ncol = B2)
+      c_patient_df_bs <- merge(pffr_data_bs[, c("image_number", "patient_id")],
+                               data.frame(patient_id = unique(pffr_data_bs$patient_id),
+                                          c_patient_bs),
+                               by = "patient_id",
+                               all.x = TRUE)
+      ord_bs <- match(pffr_data_bs$image_number, c_patient_df_bs$image_number)
+      c_patient_bs <- as.matrix(c_patient_df_bs[ord_bs, -(1:2), drop = FALSE])
     }else{
-      ##Do the inner layer:
-      if (!inner_SEs_from_package && is.null(B2)) {
-        stop("B2 must be provided when inner_SEs_from_package = FALSE.")
-      }
-      #Image-level multipliers
-      c_img_bs <- 2 * stats::rbinom(n_Im_total * B2, size = 1, prob = .5) - 1 #1 or -1
-      c_img_bs <- matrix(c_img_bs, nrow = n_Im_total, ncol = B2)
-      #Patient-level multipliers
-      if(!is.null(re)){
-        c_patient_bs <- 2 * stats::rbinom(n_patients * B2, size = 1, prob = .5) - 1 #1 or -1
-        c_patient_bs <- matrix(c_patient_bs, nrow = n_patients, ncol = B2)
-        c_patient_df_bs <- merge(pffr_data_bs[, c("image_number", "patient_id")],
-                                 data.frame(patient_id = unique(pffr_data_bs$patient_id),
-                                            c_patient_bs),
-                                 by = "patient_id",
-                                 all.x = TRUE)
-        ord_bs <- match(pffr_data_bs$image_number, c_patient_df_bs$image_number)
-        c_patient_bs <- as.matrix(c_patient_df_bs[ord_bs, -(1:2), drop = FALSE])
-      }else{
-        c_patient_bs <- matrix(0, nrow = n_Im_total, ncol = B2)
-      }
-
-      M_inner <- matrix(NA, nrow = B2, ncol = length(grid))
-      for (b2 in 1:B2) {
-        #Resample data
-        Y_mat_bs_bs <- fixed_bs + c_patient_bs[, b2] * b0_bs + c_img_bs[, b2] * epsilon_bs
-        #fit model and get estimates
-        pffr_data_bs_bs <- pffr_data_bs
-        pffr_data_bs_bs$Y_mat_bs_bs <- Y_mat_bs_bs
-        formula_bs_bs <- stats::update.formula(formula_bs, stats::as.formula('Y_mat_bs_bs ~ .'))
-        pffrmodel_bs_bs <- refund::pffr(
-          formula_bs_bs,
-          data = pffr_data_bs_bs,
-          yind = grid,
-          algorithm = "bam",
-          discrete = TRUE,
-          nthreads = nthreads
-        )
-        target_curve_bs_bs <- extract_target_curve(model=pffrmodel_bs_bs,
-                                                   grid=grid,
-                                                   target=target,
-                                                   form=form,
-                                                   covar_list = covar_list,
-                                                   func=func)
-        M_inner[b2,] <- target_curve_bs_bs
-      }
-      SEs_inner <- apply(M_inner, 2, stats::sd)
-      SEs_inner <- pmax(SEs_inner, 1e-8) #avoid potential division by 0
-      M[b1] <- max(abs((target_curve_bs-target_curve)/SEs_inner))
-      target_curve_outer[b1,] <- target_curve_bs
+      c_patient_bs <- matrix(0, nrow = n_Im_total, ncol = B2)
     }
+
+    M_inner <- matrix(NA, nrow = B2, ncol = length(grid))
+    for (b2 in 1:B2) {
+      #Resample data
+      Y_mat_bs_bs <- fixed_bs + c_patient_bs[, b2] * b0_bs + c_img_bs[, b2] * epsilon_bs
+      #fit model and get estimates
+      pffr_data_bs_bs <- pffr_data_bs
+      pffr_data_bs_bs$Y_mat_bs_bs <- Y_mat_bs_bs
+      formula_bs_bs <- stats::update.formula(formula_bs, stats::as.formula('Y_mat_bs_bs ~ .'))
+      pffrmodel_bs_bs <- refund::pffr(
+        formula_bs_bs,
+        data = pffr_data_bs_bs,
+        yind = grid,
+        algorithm = "bam",
+        discrete = TRUE,
+        nthreads = nthreads
+      )
+      target_curve_bs_bs <- extract_target_curve(model=pffrmodel_bs_bs,
+                                                 grid=grid,
+                                                 target=target,
+                                                 form=form,
+                                                 covar_list = covar_list,
+                                                 func=func)
+      M_inner[b2,] <- target_curve_bs_bs
+    }
+    SEs_inner <- apply(M_inner, 2, stats::sd)
+    SEs_inner <- pmax(SEs_inner, 1e-8) #avoid potential division by 0
+    M[b1] <- max(abs((target_curve_bs-target_curve)/SEs_inner))
+    target_curve_outer[b1,] <- target_curve_bs
   }
 
   #########################
@@ -450,13 +408,8 @@ wildBS_CB <- function(formula,
 
   q <- stats::quantile(M, 1-alpha)
 
-  if(inner_SEs_from_package){
-    target_curve_SEs <- SE_pkg_orig
-    MoE <- q * target_curve_SEs
-  } else {
-    target_curve_SEs <- apply(target_curve_outer, 2, stats::sd)
-    MoE <- q * target_curve_SEs
-  }
+  target_curve_SEs <- apply(target_curve_outer, 2, stats::sd)
+  MoE <- q * target_curve_SEs
   CB_lower <- target_curve - MoE
   CB_upper <- target_curve + MoE
   CBs <- list(CB_lower, CB_upper, grid, target_curve, target_curve_SEs, q, M)
@@ -474,6 +427,7 @@ sim <- function(iter,
                 delta,
                 alpha,
                 B1,
+                B2,
                 nthreads,
                 seed){
 
@@ -541,10 +495,10 @@ sim <- function(iter,
                    form   = c("coef"),
                    func = function(group){group},
                    B1=B1,
-                   alpha=.05,
+                   B2=B2,
+                   alpha=alpha,
                    nthreads = nthreads,
-                   id='patient_id',
-                   inner_SEs_from_package=TRUE)
+                   id='patient_id')
   excludes0 <- any(CBs$CB_lower > 0 | CBs$CB_upper < 0)
   list(
     excludes0 = excludes0,
@@ -562,11 +516,12 @@ sim_with_save <- function(iter,
                           delta,
                           alpha,
                           B1,
+                          B2,
                           nthreads,
                           seed,
                           progress_file,
                           nSim){
-  res <- sim(iter, nPatients, nIm, counts, sigma, delta, alpha, B1, nthreads, seed)
+  res <- sim(iter, nPatients, nIm, counts, sigma, delta, alpha, B1, B2, nthreads, seed)
 
   #append progress
   attempt <- 1
@@ -613,12 +568,12 @@ clusterExport(cl, #export the necessary variables and functions to the parallel 
               varlist = c(
                 #Variables
                 "nPatients", "nIm", "counts", "sigma", "delta",
-                "alpha", "B1", "nthreads", "seed",
+                "alpha", "B1", "B2", "nthreads", "seed",
                 "nSim", "progress_file",
 
                 #Functions
                 "format_spatial_variable", "preprocess_data",
-                "extract_target_curve", "extract_package_SEs", "get_fixed_and_re",
+                "extract_target_curve", "get_fixed_and_re",
                 "wildBS_CB",
                 "sim", "sim_with_save"
               ),
@@ -627,7 +582,7 @@ clusterExport(cl, #export the necessary variables and functions to the parallel 
 
 res_list <- parLapplyLB(cl, iters, sim_with_save,
                         nPatients = nPatients, nIm=nIm, counts = counts, sigma = sigma, delta=delta,
-                        alpha = alpha, B1 = B1,
+                        alpha = alpha, B1 = B1, B2 = B2,
                         nthreads = nthreads, seed=seed,
                         progress_file = progress_file, nSim = nSim)
 

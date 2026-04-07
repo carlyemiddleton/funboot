@@ -2,22 +2,22 @@
 % Please edit documentation in R/utils.R
 \name{format_spatial_variable}
 \alias{format_spatial_variable}
-\title{Transforms a spatial variable in long format and into wide format for input into pffr()}
+\title{Transforms a spatial variable in long format into wide format for input into \code{refund::pffr()}}
 \usage{
 format_spatial_variable(data, spatial_variable, grid, id)
 }
 \arguments{
-\item{data}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+\item{data}{A data frame obtained from the output of \code{funboot::preprocess_data()}}
 
-\item{spatial_variable}{The spatial variable to perform the transformation on.  For example, 'outcome' or 'L_obs'}
+\item{spatial_variable}{The spatial variable to perform the transformation on.  For example, \code{outcome}.}
 
-\item{grid}{The grid on which the spatial summary function is evaluated.  For example, 0:200}
+\item{grid}{The grid of evaluation radii on which the spatial summary function is calculated.  For example, \code{0:200}.}
 
-\item{id}{The 'by' variable for the transformation, typically the image ID number.  For example, 'image_id'}
+\item{id}{The grouping variable whose name defines the rows of the output matrix (typically the image ID number).  For example, \code{"image_number"}.}
 }
 \value{
-A wide-format object compatible with the \strong{data} argument in \emph{pffr()}
+A wide-format matrix compatible with the \code{data} argument in \code{refund::pffr()}, where rows represent images and columns represent radii.
 }
 \description{
-Transforms a spatial variable in long format and into wide format for input into pffr()
+Transforms a spatial variable in long format into wide format for input into \code{refund::pffr()}
 }

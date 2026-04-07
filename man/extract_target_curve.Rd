@@ -2,29 +2,26 @@
 % Please edit documentation in R/utils.R
 \name{extract_target_curve}
 \alias{extract_target_curve}
-\title{Extracts the target curve (e.g. the curve to create the wild bootstrap confidence band around) from a \emph{pffr()} model object}
+\title{Extracts a target curve from a \code{refund::pffr()} model object}
 \usage{
 extract_target_curve(model, grid, target, form, covar_list = list(), func)
 }
 \arguments{
-\item{model}{A \emph{pffr()} model object}
+\item{model}{A fitted model object obtained from the output of \code{refund::pffr()}}
 
-\item{grid}{The grid on which the spatial summary function is evaluated.  For example, 0:200}
+\item{grid}{The grid of evaluation radii on which the spatial summary function is calculated.  For example, \code{0:200}}
 
-\item{target}{A vector containing the names of variables and/or coefficients used to calculate the target curve.  For example, c("var1","var2").  If the target curve includes the intercept curve, specify it as "Intercept".}
+\item{target}{A character vector containing the names of the model terms to be combined to form the target curve for which to construct the confidence band around.  For example, \code{c("Intercept", "var1", "var2")}}
 
-\item{form}{A vector of equal length as \emph{target}.  Each element should be be either "coef" or "term", depending on whether the the corresponding element of \emph{target} represents a coefficient curve (e.g. \eqn{\beta_1(r)}) or full term (e.g. \eqn{\beta_1(r)X_1(r)}).}
+\item{form}{A character vector of equal length as \code{target}, with each entry corresponding to an entry in \code{target}.  Each entry must be either \code{"coef"} or \code{"term"}, where \code{"coef"} uses the estimated coefficient function directly and \code{"term"} multiplies the coefficient function by the corresponding value in \code{covar_list}.}
 
-\item{covar_list}{a list containing the values of the covariates across radii.
-For example, if we want a confidence band for \eqn{\beta_0(r) + \beta_1(r)Group + \beta_2(r)L_{AB}(r)} for patient 1, use \strong{covar.list} = list(group = vec1, Lab = vec2), where vec1 and vec2 are R-length vectors containing covariate values for patient 1 at each radii, in ascending order of radii
-The names of \emph{covar.list} must match the names of \emph{target}.
-To calculate a confidence band for \eqn{\beta_0(r)} only, use \strong{covar.list}=list().}
+\item{covar_list}{A named list giving the covariate values used when constructing target-curve components with \code{form = "term"}. The names of \code{covar_list} must match \code{target}.  For example, if \code{target = c("Intercept", "var1", "var2")}, then \code{covar_list} could be \code{list(Intercept = rep(1, length(v1)), var1 = v1, var2 = v2)}, where \code{v1} and \code{v2} each have the length of the grid of evaluation radii.}
 
-\item{func}{The function of \emph{form} which produces the target curve.  Its arguments should match \emph{target}.}
+\item{func}{A function specifying how the terms in \code{target} are combined to form the target curve. The argument names of \code{func} must match \code{target}. For example, if \code{target = c("Intercept", "var1", "var2")}, then \code{func} might be \code{function(Intercept, var1, var2){Intercept + var1 + var2}}.}
 }
 \value{
-A vector containing the target curve.
+A vector containing estimated values of the target curve for each evaluation radius.
 }
 \description{
-Extracts the target curve (e.g. the curve to create the wild bootstrap confidence band around) from a \emph{pffr()} model object
+Extracts a target curve from a \code{refund::pffr()} model object
 }

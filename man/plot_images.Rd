@@ -7,16 +7,16 @@
 plot_images(data, images_to_plot, cell_types_to_plot, palette)
 }
 \arguments{
-\item{data}{Data frame containing the cell locations and cell types to be plotted.  It should contain the variables \emph{image_number,} \emph{cell_x}, \emph{cell_y}, and \emph{cell_type} as in the example data.}
+\item{data}{Data frame containing the cell locations and cell types to be plotted.  It should contain the variables \code{image_number}, \code{cell_x}, \code{cell_y}, and \code{cell_type} as in the example data.}
 
-\item{images_to_plot}{Vector containing the values of \emph{image_number} corresponding to the images to be plotted. For example, 1:10}
+\item{images_to_plot}{Vector containing the values of \code{image_number} corresponding to the images to be plotted. For example, \code{1:10}}
 
-\item{cell_types_to_plot}{Vector containing the values of \emph{cell_type} corresponding to the cell types to be plotted with color.  For example, c(7,3,9,16)}
+\item{cell_types_to_plot}{Vector containing the values of \code{cell_type} corresponding to the cell types to be plotted with color.  For example, \code{c(7,3,9,16)}}
 
-\item{palette}{Vector containing assignments of \emph{cell_type} values to their desired color.  One element should be titled "Other" and specify the desired color for all other cells.  For example, c('Other' = "gray", '7' = 'gold', '3' = "darkgreen", '9' = 'skyblue', '16'='cyan4')}
+\item{palette}{Vector containing assignments of \code{cell_type} values to their desired color.  One element should be titled \code{"Other"} and specify the desired color for all other cells.  For example, \code{c("Other" = "gray", "7" = "gold", "3" = "darkgreen", '9' = "skyblue", "16"="cyan4")}.}
 }
 \value{
-A list containing ggplot objects for each image to be plotted
+A list containing \code{ggplot} objects for each image to be plotted
 }
 \description{
 Plots the locations of cells within a set of images, colored by cell phenotype.

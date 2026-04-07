@@ -1,22 +1,22 @@
-#' @title Calculates wild bootstrap confidence bands for *pffr()* model coefficients
+#' @title Calculates wild bootstrap-based confidence bands for linear combinations of functional regression coefficients
 #'
-#' @param formula An object of class *formula*.  The formula for the *pffr()* model with special terms as in *mgcv's* GAM
-#' @param data Data frame obtained from the output of *funboot::preprocess_data()*
-#' @param spatial_covars Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')
-#' @param target Number of outer bootstrap samples
-#' @param form Number of outer bootstrap samples
-#' @param covar_list Number of outer bootstrap samples
-#' @param func Number of outer bootstrap samples
+#' @param formula An object of class `formula`.  The formula passed to `refund::pffr()` with special terms as in `mgcv::gam()`
+#' @param data A data frame obtained from the output of `funboot::preprocess_data()`
+#' @param spatial_covars A character vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, `c("var1","var2")`
+#' @param target A character vector containing the names of the model terms to be combined to form the target curve for which to construct the confidence band around.  For example, `c("Intercept", "var1", "var2")`
+#' @param form A character vector of equal length as `target`, with each entry corresponding to an entry in `target`.  Each entry must be either `"coef"` or `"term"`, where `"coef"` uses the estimated coefficient function directly and `"term"` multiplies the coefficient function by the corresponding value in `covar_list`.
+#' @param covar_list A named list giving the covariate values used when constructing target-curve components with `form = "term"`. The names of `covar_list` must match `target`.  For example, if `target = c("Intercept", "var1", "var2")`, then `covar_list` could be `list(Intercept = rep(1, length(v1)), var1 = v1, var2 = v2)`, where `v1` and `v2` each have the length of the grid of evaluation radii.
+#' @param func A function specifying how the terms in `target` are combined to form the target curve. The argument names of `func` must match `target`. For example, if `target = c("Intercept", "var1", "var2")`, then `func` might be `function(Intercept, var1, var2){Intercept + var1 + var2}`.
 #' @param B1 Number of outer bootstrap samples
 #' @param B2 Number of inner bootstrap samples
-#' @param alpha Desired significance level for the confidence band. For example, 0.05
-#' @param re Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
-#' @param id Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
-#' @param nthreads Vector containing names of variable(s) for which to fit a random intercept.  For example, c('patient_id')
-#' @param inner_SEs_from_package Whether or not to replace the inner bootstrap loop standard errors with *pffr()*'s estimated standard errors of the coefficient function.  Should only be used if the target quantity for the confidence band is a single model coefficient and the data contain one image per patient.
+#' @param alpha Desired significance level for the confidence band. e.g., `0.05`.
+#' @param re Name of variable for which to fit a random intercept.  For example, `"patient_id"`.
+#' @param id Name of the patient ID variable. e.g., `"patient_id"`.
+#' @param nthreads Number of parallel threads to use in the call to `refund::pffr()`
 #'
-#' @return A list containing the lower and upper bounds of the confidence band, as well as the estimated model coefficients and standard errors from the *pffr()* output and additional intermittent variables used in the calculation of the confidence band.
+#' @return A list containing, for each evaluation radius: the lower and upper bounds of the confidence band, estimated values of the target curve, and the standard deviation of outer bootstrap target curve estimates.  Also returns the grid of evaluation radii, the critical value, and the bootstrap distribution of the statistic `M`.
 #'
+#' @seealso [refund::pffr()], [mgcv::gam()]
 #' @export
 
 wildBS_CB <- function(formula,
@@ -27,12 +27,11 @@ wildBS_CB <- function(formula,
                       covar_list=list(),
                       func,
                       B1,
-                      B2=NULL,
+                      B2,
                       alpha=.05,
                       re=NULL,
                       id,
-                      nthreads = 1,
-                      inner_SEs_from_package=FALSE){
+                      nthreads = 1){
 
   ####################
   ## Format dataset ##
@@ -104,26 +103,6 @@ wildBS_CB <- function(formula,
                                        covar_list = covar_list,
                                        func=func)
 
-  ## Get package SE's
-  SE_pkg_orig <- NULL
-  if (inner_SEs_from_package==TRUE) {
-    if (length(target) != 1) {
-      stop("inner_SEs_from_package cannot be used when target has length greater than 1.")
-    }
-    if (any(form != "coef")) {
-      stop("inner_SEs_from_package can only be used if form = 'coef'. ")
-    }
-    if (n_patients != n_Im_total) {
-      stop("inner_SEs_from_package cannot be used with multiple images per subject.")
-    }
-    if (!is.null(re)) {
-      stop("inner_SEs_from_package cannot be used with random intercept models.")
-    }
-
-    SE_pkg_orig <- extract_package_SEs(name = target, model = pffrmodel, grid = grid)
-    SE_pkg_orig <- pmax(SE_pkg_orig, 1e-8) # avoid division by 0
-  }
-
 
   ###########################
   ## Outer bootstrap layer ##
@@ -183,17 +162,6 @@ wildBS_CB <- function(formula,
     ## Inner bootstrap layer ##
     ###########################
 
-    ##If inner_SEs_from_package == TRUE, skip the inner layer and use pffr()'s package SEs instead:
-    if (inner_SEs_from_package==TRUE) {
-      SEs_inner <- extract_package_SEs(name = target, model = pffrmodel_bs, grid = grid)
-      SEs_inner <- pmax(SEs_inner, 1e-8) #avoid potential division by 0
-      M[b1] <- max(abs((target_curve_bs - target_curve) / SEs_inner))
-      target_curve_outer[b1, ] <- target_curve_bs
-    }else{
-    ##Do the inner layer:
-      if (!inner_SEs_from_package && is.null(B2)) {
-        stop("B2 must be provided when inner_SEs_from_package = FALSE.")
-      }
       #Image-level multipliers
       c_img_bs <- 2 * stats::rbinom(n_Im_total * B2, size = 1, prob = .5) - 1 #1 or -1
       c_img_bs <- matrix(c_img_bs, nrow = n_Im_total, ncol = B2)
@@ -241,7 +209,6 @@ wildBS_CB <- function(formula,
       M[b1] <- max(abs((target_curve_bs-target_curve)/SEs_inner))
       target_curve_outer[b1,] <- target_curve_bs
     }
-  }
 
   #########################
   ## Get confidence band ##
@@ -249,13 +216,8 @@ wildBS_CB <- function(formula,
 
   q <- stats::quantile(M, 1-alpha)
 
-  if(inner_SEs_from_package){
-    target_curve_SEs <- SE_pkg_orig
-    MoE <- q * target_curve_SEs
-  } else {
-    target_curve_SEs <- apply(target_curve_outer, 2, stats::sd)
-    MoE <- q * target_curve_SEs
-  }
+  target_curve_SEs <- apply(target_curve_outer, 2, stats::sd)
+  MoE <- q * target_curve_SEs
   CB_lower <- target_curve - MoE
   CB_upper <- target_curve + MoE
   CBs <- list(CB_lower, CB_upper, grid, target_curve, target_curve_SEs, q, M)

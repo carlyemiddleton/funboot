@@ -2,22 +2,22 @@
 % Please edit documentation in R/utils.R
 \name{get_fixed_and_re}
 \alias{get_fixed_and_re}
-\title{Fits a \emph{pffr()} model to spatial summary function data}
+\title{Extracts estimated fixed effects and random effects from a \code{refund::pffr()} model object}
 \usage{
 get_fixed_and_re(model, n_Im_total, grid, id)
 }
 \arguments{
-\item{model}{An object of class \emph{formula}.  The formula for the \emph{pffr()} model with special terms as in \emph{mgcv's} BAM}
+\item{model}{A fitted model object obtained from the output of \code{refund::pffr()}}
 
-\item{n_Im_total}{Data frame obtained from the output of \emph{funboot::preprocess_data()}}
+\item{n_Im_total}{The total number of observed images}
 
-\item{grid}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
+\item{grid}{The grid of evaluation radii on which the spatial summary function is calculated.  For example, \code{0:200}}
 
-\item{id}{Vector containing the names of the covariate(s) to be treated as spatially-varying.  For example, c('var1','var2')}
+\item{id}{The grouping variable whose name defines the random effect in the fitted model.  For example, \code{"patient_id"}}
 }
 \value{
-A \emph{pffr()} model object
+A list containing estimated fixed effects and random effects at each evaluation radius
 }
 \description{
-Fits a \emph{pffr()} model to spatial summary function data
+Extracts estimated fixed effects and random effects from a \code{refund::pffr()} model object
 }
