@@ -12,7 +12,6 @@ library(spatstat.geom)
 library(spatstat.explore)
 library(refund)
 library(mgcv)
-
 ```
 
 It is recommended to load only `spatstat.geom` and `spatstat.explore` instead of loading `spatstat` all together, as other packages in the `spatstat` family may interfere with `refund::pffr().`
@@ -24,7 +23,7 @@ devtools::install_github('carlyemiddleton/funboot')
 library(funboot)
 ```
 
-## Example Data
+## Required Format for Input Data
 
 The package requires single-cell input data in the form of an R `data.frame` containing variables named exactly as: `patient_id`, `image_number`, `cell_id`, `cell_x`, `cell_y`, `cell_type`, and any covariates.  Two example datasets following this format are included in the package:  
 
@@ -35,7 +34,7 @@ data("melanoma_data", package="funboot")
 
 ## Vignette
 
-This package contains a vignette, which can be built during the install:
+The package contains a vignette, which can be built during the install:
 
 ```
 devtools::install_github('carlyemiddleton/funboot', build_vignettes = TRUE, force=TRUE)
