@@ -1,9 +1,9 @@
 Package: funboot
-Title: What the Package Does (One Line, Title Case)
+Title: Pairwise cell type colocalization analysis for multiplex imaging data via functional regression and wild bootstrap
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+    person("Carly", "Middleton", "carly.middleton@gmail.com", role = c("aut", "cre"))
+Description: Package implementing the proposed method from the manuscript "funboot: Pairwise cell type colocalization analysis for multiplex imaging data via functional regression and wild bootstrap." 
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -20,5 +20,6 @@ LazyData: true
 LazyDataCompression: xz
 Suggests: 
     knitr,
-    rmarkdown
+    rmarkdown,
+	patchwork
 VignetteBuilder: knitr

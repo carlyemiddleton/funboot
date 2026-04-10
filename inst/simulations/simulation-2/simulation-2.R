@@ -62,14 +62,17 @@ preprocess_data <- function(data,
 
   Kdata <- K_pmean_vec <- NULL
   if(summary_function=='L'){
-    Ldata<- L_pmean_vec <- NULL
+    L_pmean_vec <- NULL
   }
   if(summary_function=='g'){
     gdata<- g_pmean_vec <- NULL
   }
   for(i in unique(data$image_number)){
-    if(sum(data$image_number == i & data$cell_type == from_cell)>qc_cellcount_cutoff & #quality control criteria
-       sum(data$image_number == i & data$cell_type == to_cell)>qc_cellcount_cutoff){
+    from_count <- sum(data$image_number == i & data$cell_type == from_cell)
+    to_count <- sum(data$image_number == i & data$cell_type == to_cell)
+
+    if(from_count > qc_cellcount_cutoff &
+       to_count > qc_cellcount_cutoff){ #quality control criteria
       qc_data <- data[data$image_number == i,]
       if(perm_yn==TRUE){
         permuted_K <- NULL
@@ -110,44 +113,90 @@ preprocess_data <- function(data,
       Kdata_temp <- data.frame(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ), image=i)
       names(Kdata_temp) <- c('r','K_expect','K_obs','image_number')
       Kdata <- rbind(Kdata, Kdata_temp)
-      if(summary_function=='L'){
-        Ldata <- Kdata
-        Ldata$K_expect <- sqrt(Ldata$K_expect/pi)
-        Ldata$K_obs <- sqrt(Ldata$K_obs/pi)
-        names(Ldata) <- c('r','L_expect','L_obs','image_number')
-      }
       if(summary_function=='g'){
         gdata_temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ),
                                                        method='c', divisor ="d"), image=i)
         names(gdata_temp) <- c('r','g_expect','g_obs','image_number')
         gdata <- rbind(gdata, gdata_temp)
       }
+    }else if(from_count > qc_cellcount_cutoff &
+             to_count == 0){
+      r_grid <- seq(0, r_max, by = inc)
+
+      Kdata_temp <- data.frame(
+        r = r_grid,
+        K_expect = NA_real_,
+        K_obs = 0,
+        image_number = i
+      )
+      Kdata <- rbind(Kdata, Kdata_temp)
+
+      if(summary_function=='g'){
+        gdata_temp <- data.frame(
+          r = r_grid,
+          g_expect = NA_real_,
+          g_obs = 0,
+          image_number = i
+        )
+        gdata <- rbind(gdata, gdata_temp)
+      }
+
+      if(perm_yn==TRUE){
+        K_pmean_vec <- c(K_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        if(summary_function=='L'){
+          L_pmean_vec <- c(L_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+        if(summary_function=='g'){
+          g_pmean_vec <- c(g_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+      }
     }
   }
   #Calculate the outcome variable
   if(summary_function=='L'){
-    sumfun_data <- Ldata
-    if(perm_yn==TRUE){sumfun_data$L_pmean <- L_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$L_obs - sumfun_data$L_pmean
+    sumfun_data <- Kdata
+    sumfun_data$K_expect <- sqrt(sumfun_data$K_expect/pi)
+    sumfun_data$K_obs <- sqrt(sumfun_data$K_obs/pi)
+    names(sumfun_data) <- c('r','L_expect','L_obs','image_number')
+    if(perm_yn==TRUE){
+      sumfun_data$L_pmean <- L_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_pmean) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_pmean)
     }else{
-      sumfun_data$L_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$L_obs - sumfun_data$L_expect}
+      sumfun_data$L_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_expect) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_expect)
+    }
     names(sumfun_data) <- c('r','L_expect','L_obs','image_number','L_pmean','outcome')
   }else if(summary_function=='g'){
     sumfun_data <- gdata
-    if(perm_yn==TRUE){sumfun_data$g_pmean <- g_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$g_obs - sumfun_data$g_pmean
+    if(perm_yn==TRUE){
+      sumfun_data$g_pmean <- g_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_pmean) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_pmean)
     }else{
-      sumfun_data$g_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$g_obs - sumfun_data$g_expect}
+      sumfun_data$g_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_expect) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_expect)
+    }
     names(sumfun_data) <- c('r','g_expect','g_obs','image_number','g_pmean','outcome')
   }else{
     sumfun_data <- Kdata
-    if(perm_yn==TRUE){sumfun_data$K_pmean <- K_pmean_vec;
-    sumfun_data$outcome <- sumfun_data$K_obs - sumfun_data$K_pmean
+    if(perm_yn==TRUE){
+      sumfun_data$K_pmean <- K_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_pmean) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_pmean)
     }else{
-      sumfun_data$K_pmean <- NA;
-      sumfun_data$outcome <- sumfun_data$K_obs - sumfun_data$K_expect}
+      sumfun_data$K_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_expect) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_expect)
+    }
     names(sumfun_data) <- c('r','K_expect','K_obs','image_number','K_pmean','outcome')
   }
   covariate_df <- data
@@ -441,8 +490,8 @@ plot_wildBS_CB <- function(CB_object){
     ggplot2::theme(axis.title.y = ggplot2::element_text(size = 20),
                    axis.title.x = ggplot2::element_text(size = 20)) +
     ggplot2::geom_hline(yintercept = 0, lty = 2) +
-    ggplot2::scale_color_manual(values = c("Estimate" = "#F8766D",
-                                           "Wild Bootstrap CB" = "#00BA38"))
+    ggplot2::scale_color_manual(values = c("Estimated Target Curve" = "#F8766D",
+                                           "Confidence Band" = "#00BA38"))
   return(p)
 }
 
@@ -581,19 +630,19 @@ var_mat_data <- preprocess_data(table,
 var_mat_data$group <- ifelse(var_mat_data$group=='Group1', 1, 0)
 names(var_mat_data)[names(var_mat_data)=='L_obs'] <- 'var_mat'
 var_mat_data$L_expect <- var_mat_data$L_pmean <- var_mat_data$outcome <- NULL
-sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','roi','group'),all=T)
-sumfun_data_full$var_mat <- ifelse(is.na(sumfun_data_full$var_mat), 0, sumfun_data_full$var_mat)
-#The interaction term
-sumfun_data_full$var_group_mat <- sumfun_data_full$var_mat*sumfun_data_full$group
+sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','roi','group'),all=F)
+sumfun_data_full <- sumfun_data_full[
+  order(sumfun_data_full$image_number,
+        sumfun_data_full$r),
+]
+
+sumfun_data_full$var_group_mat <- sumfun_data_full$var_mat * sumfun_data_full$group
 
 #For the prediction, use \hat{L}_{AT}(r) from patients 10 and 51 to represent groups 1 and 2, respectively.
-#sumfun_data_trtpatient <- sumfun_data_full[sumfun_data_full$image_number=='10_1',]
-#sumfun_data_ctrlpatient <- sumfun_data_full[sumfun_data_full$image_number=='51_1',]
 sumfun_data_trtpatient <- sumfun_data_full[sumfun_data_full$image_number=='5_1',]
 sumfun_data_ctrlpatient <- sumfun_data_full[sumfun_data_full$image_number=='59_1',]
 
 #-------------- Get confidence band for E[Y|X] for a trt patient (overall image) ---------------------------------
-
 covar_list_trt_overall <- list(Intercept = rep(1, length(sumfun_data_trtpatient$group)),
                                   group = sumfun_data_trtpatient$group,
                                   var_mat = sumfun_data_trtpatient$var_mat,
@@ -614,7 +663,7 @@ CB1 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
                 re=NULL,
                 id='patient_id',
                 nthreads = 1)
-
+save(CB1, file='CB1.RData')
 plot_wildBS_CB(CB1)
 
 #-------------- Get confidence band for E[Y|X] for a ctrl patient (overall image) ---------------------------------
@@ -639,11 +688,10 @@ CB2 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
                 re=NULL,
                 id='patient_id',
                 nthreads = 1)
-
+save(CB2, file='CB2.RData')
 plot_wildBS_CB(CB2)
 
 #-------------- Get confidence band for E[Y|X] for a group 1 patient (stroma region only) ---------------------------------
-
 covar_list_trt_stroma <- list(Intercept = rep(1, length(sumfun_data_trtpatient$group)),
                                   group = sumfun_data_trtpatient$group,
                                   var_mat = rep(0, length(sumfun_data_trtpatient$group)),
@@ -664,7 +712,7 @@ CB3 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
                 re=NULL,
                 id='patient_id',
                 nthreads = 1)
-
+save(CB3, file='CB3.RData')
 plot_wildBS_CB(CB3)
 
 #-------------- Get confidence band for E[Y|X] for a ctrl patient (stroma region only) ---------------------------------
@@ -689,7 +737,7 @@ CB4 <- wildBS_CB(formula=outcome ~ group + var_mat + var_group_mat,
                 re=NULL,
                 id='patient_id',
                 nthreads = 1)
-
+save(CB4, file='CB4.RData')
 plot_wildBS_CB(CB4)
 
 #-------------- Plot results---------------------------------------------------------------------------------------------
@@ -709,7 +757,6 @@ pimage <- ggplot() +
     col = ""
   ) +
   theme(
-    legend.position = "none",
     axis.title.y = element_text(size = 20),
     axis.title.x = element_text(size = 20)
   ) +
@@ -721,12 +768,15 @@ pimage <- ggplot() +
   ) +
   scale_linetype_manual(name = "", values = c("Treatment Group" = 1, "Control Group" = 2)) +
   geom_hline(yintercept = 0, lty = 3) +
-  ggtitle("Overall Image") +
+  ggtitle("Overall Image Colocalization Curve") +
   ylim(c(-1, 4)) +
   theme(
-    title = element_text(size = 18),
+    title = element_text(size = 15),
     legend.title = element_text(size = 12),
-    legend.text = element_text(size = 12)
+    legend.text = element_text(size = 15)
+  ) +
+  theme(
+    legend.key.width = unit(1, "cm")
   )
 
 pstroma <- ggplot() +
@@ -743,6 +793,7 @@ pstroma <- ggplot() +
     col = ""
   ) +
   theme(
+    legend.position = "none",
     axis.title.y = element_text(size = 20),
     axis.title.x = element_text(size = 20)
   ) +
@@ -754,10 +805,10 @@ pstroma <- ggplot() +
   ) +
   scale_linetype_manual(name = "", values = c("Treatment Group" = 1, "Control Group" = 2)) +
   geom_hline(yintercept = 0, lty = 3) +
-  ggtitle("Stroma Regions") +
+  ggtitle("Colocalization Curve in Stroma Regions") +
   ylim(c(-2, 3)) +
   theme(
-    title = element_text(size = 18),
+    title = element_text(size = 15),
     legend.title = element_text(size = 12),
     legend.text = element_text(size = 15)
   ) +
@@ -777,9 +828,9 @@ dev.off()
 
 png(paste0('simplot5_1.png'), width=1700, height=1500, res=300)
 ggplot(data=cellExp[cellExp$imageID=='5_1',]) + theme_bw() +
-  geom_point(aes(x=x, y=y, col=cellType)) + labs(title='Patient #5 (Treatment Group)',
+  geom_point(aes(x=x, y=y, col=cellType)) + labs(title='Representative Treatment Group Image',
                                                  x=expression('X Coordinate (' ~ mu ~ 'm)'),y=expression('Y Coordinate (' ~ mu ~ 'm)'), col='Cell Type') +
-  theme(plot.title = element_text(size = 20),
+  theme(plot.title = element_text(size = 14.5, face = "bold"),
         legend.key.height = unit(1, 'cm'), #change legend key height
         legend.key.width = unit(1, 'cm'), #change legend key width
         legend.title = element_text(size=14), #change legend title font size
@@ -791,9 +842,9 @@ dev.off()
 
 png(paste0('simplot59_1.png'), width=1700, height=1500, res=300)
 ggplot(data=cellExp[cellExp$imageID=='59_1',]) + theme_bw() +
-  geom_point(aes(x=x, y=y, col=cellType)) + labs(title='Patient #59 (Control Group)',
+  geom_point(aes(x=x, y=y, col=cellType)) + labs(title='Representative Control Group Image',
                                                  x=expression('X Coordinate (' ~ mu ~ 'm)'),y=expression('Y Coordinate (' ~ mu ~ 'm)'), col='Cell Type')  +
-  theme(plot.title = element_text(size = 20),
+  theme(plot.title = element_text(size = 14.5, face = "bold"),
         legend.key.height = unit(1, 'cm'), #change legend key height
         legend.key.width = unit(1, 'cm'), #change legend key width
         legend.title = element_text(size=14), #change legend title font size
@@ -809,5 +860,5 @@ dev.off()
 library(pdftools)
 library(magick)
 
-img <- image_read_pdf("annotated.pdf", density = 300)
+img <- image_read_pdf("annotate.pdf", density = 300)
 image_write(img, "annotated.png")

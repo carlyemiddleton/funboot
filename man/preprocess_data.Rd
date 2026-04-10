@@ -25,7 +25,7 @@ preprocess_data(
 
 \item{to_cell}{The "to" cell type to be used in the calculation of the spatial summary function}
 
-\item{qc_cellcount_cutoff}{If an image has \code{qc_cellcount_cutoff} or less "to" cells, or \code{qc_cellcount_cutoff} or less "from" cells, the image is excluded from the calculation of the spatial summary function.  (Similar to SpaceANOVA's \code{Hard_ths} parameter.)}
+\item{qc_cellcount_cutoff}{If an image has between 1 and \code{qc_cellcount_cutoff} "to" cells, or between 1 and \code{qc_cellcount_cutoff} "from" cells, the image is excluded from the calculation of the spatial summary function. (Similar to SpaceANOVA's \code{Hard_ths} parameter.) If there are 1 or more "to" cells and 0 "from" cells, the spatial summary function is considered to be 0 at all radii.}
 
 \item{n_perm}{The number of permutations to use in the permutation adjustment to the colocalization curve, if \code{perm_yn = TRUE}.}
 
@@ -33,7 +33,7 @@ preprocess_data(
 
 \item{r_max}{The maximum radius at which the observed spatial summary function should be evaluated.}
 
-\item{inc}{The increment of units by which the spatial summary function should be evaluated.  For example, if \code{r_max = 200} and \code{inc=1}, the spatial summary function is evaluated over the grid \code{0:200}.}
+\item{inc}{The increment of units by which the spatial summary function should be evaluated.  For example, if \code{r_max = 200} and \code{inc = 1}, the spatial summary function is evaluated over the grid \code{0:200}.}
 
 \item{image_dims}{Vector containing the dimensions of the images in the observed data. For example, \code{c(x_min, x_max, y_min, y_max)}.  All images must be of the same dimension.}
 

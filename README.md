@@ -4,7 +4,7 @@
 
 ## Installation
 
-The package's dependencies are below.
+First, load all package dependencies:
 
 ```
 library(ggplot2)
@@ -15,17 +15,9 @@ library(mgcv)
 
 ```
 
-For the spatstat package, it is recommended to load only the above spatstat modules instead of loading library(spatstat) all together.  In our experience, some of the spatstat modules besides the ones above have interfered with `refund::pffr().`
+It is recommended to load only `spatstat.geom` and `spatstat.explore` instead of loading `spatstat` all together, as other packages in the `spatstat` family may interfere with `refund::pffr().`
 
 Once all dependencies are present, `funboot` can be installed and loaded as follows:
-
-```
-devtools::install_github('carlyemiddleton/funboot', build_vignettes = TRUE, force=TRUE)
-```
-
-```
-library(funboot)
-```
 
 ```
 devtools::install_github('carlyemiddleton/funboot')
@@ -34,7 +26,7 @@ library(funboot)
 
 ## Example Data
 
-Our package requires input data in the form of an R data.frame containing variables named exactly as: `patient_id`, `image_number`, `cell_id`, `cell_x`, `cell_y`, `cell_type`, and any covariates to be adjusted for.  Two example datasets following this format are included in the package:  
+The package requires single-cell input data in the form of an R `data.frame` containing variables named exactly as: `patient_id`, `image_number`, `cell_id`, `cell_x`, `cell_y`, `cell_type`, and any covariates.  Two example datasets following this format are included in the package:  
 
 ```
 data("breastcancer_data", package="funboot")
@@ -51,5 +43,5 @@ browseVignettes("funboot")
 ```
 Alternatively, a pre-rendered verison of it is accessible [here](https://htmlpreview.github.io/?https://github.com/carlyemiddleton/funboot/blob/main/vignettes/funboot.html).
 
-The vignette takes about 4 minutes to build on a laptop computer with 8 cores, a 2.3 GHz processor, and 16 GB of RAM.  
+The vignette takes about 4 minutes to build on a standard laptop computer with 8 cores and a 2.3 GHz processor.  
 

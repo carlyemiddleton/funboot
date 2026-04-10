@@ -588,6 +588,8 @@ pInt <- ggplot() +
     linewidth = lw
   ) +
   labs(
+    title = "Overall Image Colocalization Curve",
+    subtitle = "Endothelial Cells and T Cells",
     x = "r",
     y = "Y(r)",
     col = " "
@@ -606,9 +608,9 @@ pInt <- ggplot() +
   theme(
     title = element_text(size = 18),
     legend.title = element_text(size = 16),
-    legend.text = element_text(size = 16)
-  ) +
-  ggtitle("Colocalization Curve")
+    legend.text = element_text(size = 16),
+    plot.subtitle = element_text(size = 16)
+  )
 
 pAvoid <- ggplot() +
   theme_bw() +
@@ -638,13 +640,17 @@ pAvoid <- ggplot() +
     linewidth = lw
   ) +
   labs(
+    title = "Overall Image Colocalization Curve",
+    subtitle = "Small Circular Stromal Cells and Proliferative Epithelial Cells",
     x = "r",
     y = "Y(r)",
     col = " "
   ) +
   theme(
+    legend.position = 'none',
     axis.title.y = element_text(size = 20),
-    axis.title.x = element_text(size = 20)
+    axis.title.x = element_text(size = 20),
+    plot.subtitle = element_text(size = 16)
   ) +
   scale_color_manual(values = c(
     "Observed Y(r)" = "grey",
@@ -657,8 +663,14 @@ pAvoid <- ggplot() +
     title = element_text(size = 18),
     legend.title = element_text(size = 16),
     legend.text = element_text(size = 16)
-  ) +
-  ggtitle("Colocalization Curve")
+  )
+
+bottom_row <- (pInt | pAvoid) +
+  plot_layout(widths = c(1, 1))
+
+png('bottom.png', width=5000, height=1300, res=300)
+bottom_row
+dev.off()
 
 ##Image plots
 data <- breastcancer_data
@@ -676,8 +688,8 @@ for(i in c(362, 181, 246, 13)){
                  axis.title.y = element_text(size = 14),
                  legend.key.height = unit(1, 'cm'),
                  legend.key.width = unit(1, 'cm'),
-                 legend.title = element_text(size=16),
-                 legend.text = element_text(size=16)) +
+                 legend.title = element_text(size=18),
+                 legend.text = element_text(size=18)) +
            guides(colour = guide_legend(override.aes = list(size=5))) )
 }
 p13 <- p13 + theme(legend.position = 'none')
@@ -697,8 +709,8 @@ for(i in c(219, 244, 246, 254)){
                  axis.title.y = element_text(size = 14),
                  legend.key.height = unit(1, 'cm'), #change legend key height
                  legend.key.width = unit(1, 'cm'), #change legend key width
-                 legend.title = element_text(size=16), #change legend title font size
-                 legend.text = element_text(size=16)) +
+                 legend.title = element_text(size=18), #change legend title font size
+                 legend.text = element_text(size=18)) +
            guides(colour = guide_legend(override.aes = list(size=5))) )
 }
  p219 <- p219 + theme(legend.position = 'none')
@@ -711,26 +723,31 @@ top_images <- p13 + p181 + p246_top + p362 +
 bottom_images <- p219 + p244 + p246_bottom + p254 +
   plot_layout(ncol = 4)
 
-top_row <- (top_images | pInt) +
-  plot_layout(widths = c(5, 1)) +
+top_row <- top_images +
   plot_annotation(
     title = "Interaction Between Endothelial Cells and T Cells",
-    theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0))
+    theme = theme(plot.title = element_text(size = 28, face = "bold", hjust = 0))
   )
 
-bottom_row <- (bottom_images | pAvoid) +
-  plot_layout(widths = c(5, 1)) +
+middle_row <- bottom_images +
   plot_annotation(
     title = "Avoidance Between Small Circular Stromal Cells and Proliferative Epithelial Cells",
-    theme = theme(plot.title = element_text(size = 20, face = "bold", hjust = 0))
+    theme = theme(plot.title = element_text(size = 28, face = "bold", hjust = 0))
   )
 
-png('case-study-breast-cancer_top.png', width=5500*1.3, height=1000*1.3, res=300)
+png('case-study-breast-cancer_top.png', width=7150, height=1500, res=300)
 top_row
 dev.off()
-png('case-study-breast-cancer_bottom.png', width=5500*1.3, height=1000*1.3, res=300)
-bottom_row
+png('case-study-breast-cancer_middle.png', width=7150, height=1500, res=300)
+middle_row
 dev.off()
+
+
+library(pdftools)
+library(magick)
+
+img <- image_read_pdf("annotate.pdf", density = 300)
+image_write(img, "annotated_breast-cancer.png")
 
 
 #-------------- Model with covariates ---------------------------------------------------------------------------------------------

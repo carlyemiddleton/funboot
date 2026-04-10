@@ -507,7 +507,7 @@ CB_overall <- wildBS_CB(formula=outcome ~ s(patient_id, bs = "re"),
                        re='patient_id',
                        nthreads = 1,
                        id='patient_id')
-save(CB_overall, file='CB_overall.RData')
+#save(CB_overall, file='CB_overall.RData')
 plot_wildBS_CB(CB_overall)
 
 #------------ CB for avascular regions -------------------------------------------------------------------------------------
@@ -529,7 +529,11 @@ var_mat_data$patient_id <- as.factor(var_mat_data$patient_id)
 names(var_mat_data)[names(var_mat_data)=='L_obs'] <- 'var_mat'
 var_mat_data$L_expect <- var_mat_data$L_pmean <- var_mat_data$outcome <- NULL
 sumfun_data_full <- merge(sumfun_data, var_mat_data, by=c('image_number','r','patient_id','patient_age'),all=T)
-sumfun_data_full$var_mat <- ifelse(is.na(sumfun_data_full$var_mat), 0, sumfun_data_full$var_mat)
+sumfun_data_full <- sumfun_data_full[
+  order(sumfun_data_full$image_number,
+        sumfun_data_full$r),
+]
+#sumfun_data_full$var_mat <- ifelse(is.na(sumfun_data_full$var_mat), 0, sumfun_data_full$var_mat)
 
 covar_list <- list(Intercept = rep(1, 501),
                    var_mat = rep(0, 501))
@@ -549,7 +553,7 @@ CB_avascular <- wildBS_CB(formula=outcome ~ var_mat + s(patient_id, bs = "re"),
                          re='patient_id',
                          nthreads = 1,
                          id='patient_id')
-save(CB_avascular, file='CB_avascular.RData')
+#save(CB_avascular, file='CB_avascular.RData')
 plot_wildBS_CB(CB_avascular)
 
 #-------------- Plot results---------------------------------------------------------------------------------------------
@@ -564,17 +568,16 @@ pimage <- ggplot() + theme_bw() +
   #),
   #col = " "
   ) +
-  theme(legend.position = 'none',
-        axis.title.y = element_text(size = 20),
+  theme(axis.title.y = element_text(size = 20),
         axis.title.x = element_text(size = 20))  +
-  scale_color_manual(values = c("Estimated E[Y(r)|X]" = '#F8766D',
+  scale_color_manual(name = " ", values = c("Estimated E[Y(r)|X]" = '#F8766D',
                                 "95% Confidence Band"='#00BA38')) +
-  geom_hline(yintercept=0, lty=3, size=1) + ylim(c(-100,200)) +
-  theme(title = element_text(size = 18),
+  geom_hline(yintercept=0, lty=3, size=1) + ylim(c(-600,200)) +
+  theme(title = element_text(size = 15),
         legend.title = element_text(size=12),
         legend.text = element_text(size=12),
         plot.subtitle = element_text(size=18)) +
-  ggtitle('Overall Image')
+  ggtitle('Overall Image Colocalization Curve')
 
 pavascular <- ggplot() + theme_bw() +
   geom_line(aes(x=CB_avascular$grid,y=CB_avascular$target_curve_estimates, col='Estimated E[Y(r)|X]'), size=1.5) +
@@ -586,18 +589,18 @@ pavascular <- ggplot() + theme_bw() +
   #),
   #col = " "
   ) +
-  theme(
-    axis.title.y = element_text(size = 20),
-    axis.title.x = element_text(size = 20))  +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 20),
+        axis.title.x = element_text(size = 20))  +
   scale_color_manual(name = " ",
                      values = c("Estimated E[Y(r)|X]" = '#F8766D',
                                 "95% Confidence Band"='#00BA38')) +
-  geom_hline(yintercept=0, lty=3, size=1) + ylim(c(-100,200)) +
-  theme(title = element_text(size = 18),
+  geom_hline(yintercept=0, lty=3, size=1) + ylim(c(-600,200)) +
+  theme(title = element_text(size = 15),
         legend.title = element_text(size=12),
         legend.text = element_text(size=18),
         plot.subtitle = element_text(size=18)) +
-  ggtitle('Avascular Regions')
+  ggtitle('Colocalization Curve in Avascular Regions')
 
 png('melanoma-bands.png', width=4000, height=1050, res=300)
 (pimage + pavascular) + plot_annotation( #title = 'Colocalization Curve',
@@ -605,39 +608,47 @@ png('melanoma-bands.png', width=4000, height=1050, res=300)
                 plot.subtitle = element_text(size = 22))
 )
 dev.off()
-#
-# data <- melanoma_data
-# cols <- c('Other' = "gray",
-#           'CD8- T cell' = 'purple',
-#           'CD8+ T cell' = "orange",
-#           'Vasculature'='cyan4')
-# data$cells_interested <- ifelse(data$cell_type %in% c('CD8- T cell',
-#                                                       'CD8+ T cell',
-#                                                       'Vasculature'), data$cell_type, 'Other')
-# for(i in c(45, 54, 65, 137)){
-#   plot.data <- data[data$image_number == i,]
-#   plot.data$cells_interested <- factor(plot.data$cells_interested)
-#   assign(paste0('p',i), ggplot(data=plot.data, aes(x = cell_x, y = cell_y, col=cells_interested)) +
-#            geom_point() + theme_bw() + ggtitle(paste0('Image ',i)) +
-#            labs(x=expression('X Coordinate (' ~ mu ~ 'm)'), y = expression('Y Coordinate (' ~ mu ~ 'm)')) +
-#            scale_color_manual('Cell Type', values=cols, labels = c('CD8- T Cells', 'CD8+ T Cells', 'Other', 'Vasculature Cells') ) +
-#            theme(title = element_text(size = 18),
-#                  axis.title.x = element_text(size = 14),
-#                  axis.title.y = element_text(size = 14),
-#                  legend.key.height = unit(1, 'cm'), #change legend key height
-#                  legend.key.width = unit(1, 'cm'), #change legend key width
-#                  legend.title = element_text(size=16), #change legend title font size
-#                  legend.text = element_text(size=16)) +
-#            guides(colour = guide_legend(override.aes = list(size=5))) )
-# }
-# p45 <- p45 + theme(legend.position = 'none')
-# p54 <- p54 + theme(legend.position = 'none')
-# p65 <- p65 + theme(legend.position = 'none')
-#
-# png('melanoma-images.png', width=4800, height=1325, res=300)
-# (p45 + p54 + p65 + p137) + plot_layout(ncol = 4) + plot_annotation(
-#   title = "Interaction Between CD8+ T Cells and CD8- T Cells",
-#   theme = theme(plot.title = element_text(size = 22, face = "bold"),
-#                 plot.subtitle = element_text(size = 22))
-# )
-# dev.off()
+
+data <- melanoma_data
+cols <- c('Other' = "gray",
+          'CD8- T cell' = 'purple',
+          'CD8+ T cell' = "orange",
+          'Vasculature'='cyan4')
+data$cells_interested <- ifelse(data$cell_type %in% c('CD8- T cell',
+                                                      'CD8+ T cell',
+                                                      'Vasculature'), data$cell_type, 'Other')
+for(i in c(45, 54, 65, 137)){
+  plot.data <- data[data$image_number == i,]
+  plot.data$cells_interested <- factor(plot.data$cells_interested)
+  assign(paste0('p',i), ggplot(data=plot.data, aes(x = cell_x, y = cell_y, col=cells_interested)) +
+           geom_point() + theme_bw() + ggtitle(paste0('Image ',i)) +
+           labs(x=expression('X Coordinate (' ~ mu ~ 'm)'), y = expression('Y Coordinate (' ~ mu ~ 'm)')) +
+           scale_color_manual('Cell Type', values=cols, labels = c('CD8- T Cells', 'CD8+ T Cells', 'Other', 'Vasculature Cells') ) +
+           theme(title = element_text(size = 18),
+                 axis.title.x = element_text(size = 14),
+                 axis.title.y = element_text(size = 14),
+                 legend.key.height = unit(1, 'cm'), #change legend key height
+                 legend.key.width = unit(1, 'cm'), #change legend key width
+                 legend.title = element_text(size=16), #change legend title font size
+                 legend.text = element_text(size=16)) +
+           guides(colour = guide_legend(override.aes = list(size=5))) )
+}
+p45 <- p45 + theme(legend.position = 'none')
+p54 <- p54 + theme(legend.position = 'none')
+p65 <- p65 + theme(legend.position = 'none')
+
+png('melanoma-images.png', width=4800, height=1325, res=300)
+(p45 + p54 + p65 + p137) + plot_layout(ncol = 4) + plot_annotation(
+  title = "Interaction Between CD8+ T Cells and CD8- T Cells",
+  theme = theme(plot.title = element_text(size = 22, face = "bold"),
+                plot.subtitle = element_text(size = 22))
+)
+dev.off()
+
+
+
+library(pdftools)
+library(magick)
+
+img <- image_read_pdf("annotated.pdf", density = 300)
+image_write(img, "annotated.png")
