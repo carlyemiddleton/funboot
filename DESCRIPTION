@@ -1,8 +1,7 @@
 Package: funboot
 Title: Pairwise cell type colocalization analysis for multiplex imaging data via functional regression and wild bootstrap
 Version: 0.0.0.9000
-Authors@R: 
-    person("Carly", "Middleton", "carly.middleton@gmail.com", role = c("aut", "cre"))
+Authors@R: person(given = "Carly", family = "Middleton", email = "carly.middleton@gmail.com", role = c("aut", "cre"))
 Description: Package implementing the proposed method from the manuscript "funboot: Pairwise cell type colocalization analysis for multiplex imaging data via functional regression and wild bootstrap." 
 License: MIT + file LICENSE
 Encoding: UTF-8
