@@ -37,7 +37,7 @@ data("melanoma_data", package="funboot")
 The package contains a vignette, which can be built during the install:
 
 ```
-devtools::install_github('carlyemiddleton/funboot', build_vignettes = TRUE, force=TRUE)
+devtools::install_github('carlyemiddleton/funboot', build_vignettes = TRUE)
 browseVignettes("funboot")
 ```
 Alternatively, a pre-rendered verison of it is accessible [here](https://htmlpreview.github.io/?https://github.com/carlyemiddleton/funboot/blob/main/vignettes/funboot.html).

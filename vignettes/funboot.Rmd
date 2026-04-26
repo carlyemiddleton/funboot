@@ -23,7 +23,7 @@ This vignette introduces the R package `funboot`.  In the following, we demonstr
 
 We illustrate this workflow by reproducing our manuscript's real data analyses of the publicly available [Jackson-Fischer breast cancer](https://bodenmillergroup.github.io/imcdatasets/reference/JacksonFischer_2020_BreastCancer.html) and [Hoch-Schulz melanoma](https://bodenmillergroup.github.io/imcdatasets/reference/HochSchulz_2022_Melanoma.html) imaging mass cytometry datasets.
 
-Although a minimum of `B1 = 50` outer and `B2 = 50` inner bootstrap samples are generally recommended in practice, this vignette uses `B1 = B2 = 10` and `n_perm=` to reduce computation time.  As a result, the vignette takes about 4 minutes to build on a standard laptop computer with 8 cores, a 2.3 GHz processor, and 16 GB of RAM.  
+Although a minimum of `B1 = 50` outer and `B2 = 50` inner bootstrap samples and `n_perm = 50` to `100` permuted spatial summary functions are generally recommended in practice, this vignette uses `B1 = B2 = 10` and `n_perm = 5` to reduce computation time. 
 
 
 
@@ -43,7 +43,7 @@ library(ggplot2)
 `funboot` can be installed and loaded as follows:
 
 ```{r, eval=FALSE, error=FALSE, warning=FALSE, message=FALSE}
-devtools::install_github("carlyemiddleton/funboot", build_vignettes = TRUE, force=TRUE)
+devtools::install_github("carlyemiddleton/funboot", build_vignettes = TRUE)
 ```
 
 ```{r, error=FALSE, warning=FALSE, message=FALSE}
@@ -64,26 +64,33 @@ The 100-image subset of the Jackson-Fischer data contains 1 image per subject.  
 data("breastcancer_data", package="funboot")
 ```
 
-We focus on cell metaclusters 3 (T cells), 7 (endothelial cells), 9 (small circular stromal cells), and 16 (proliferative epithelial cells).  Their spatial distributions can be examined using `funboot::plot_images()`:
+**Visualization**
 
-```{r fig1, fig.cap="**Figure 1.** Spatial distributions of selected cell types in representative breast cancer images. Colors represent cell phenotype.", fig.width = 7, fig.height = 12, warning=FALSE, message=FALSE}
-##Choose colors for each cell type
-palette <- c("Other" = "gray", 
-             "7" = "gold", 
-             "3" = "darkgreen", 
-             "9" = "skyblue", 
-             "16"="cyan4")
-##Plot the images featured in the manuscript
-plot_list <- funboot::plot_images(data = breastcancer_data,
-                                  images_to_plot = c(13,181,246,362,219,244,246,254), 
-                                  cell_types_to_plot = c(7,3,9,16),
-                                  palette = palette)
-##Each entry of plot_list corresponds to one of images_to_plot
-(plot_list[[1]] + plot_list[[2]])/
-(plot_list[[3]] + plot_list[[4]])/
-(plot_list[[5]] + plot_list[[6]])/
+We focus on cell metaclusters 3 (T cells), 7 (endothelial cells), 9 (small circular stromal cells), and 16 (proliferative epithelial cells) from the Jackson-Fischer paper.  For simplicity, we refer to these metaclusters as cell types.  Their spatial distributions can be examined using `funboot::plot_images()`:
+
+```{r fig1, fig.cap="**Figure 1.** Spatial distributions of selected cell types in representative images from the breast cancer dataset.", fig.width = 7, fig.height = 12, warning=FALSE, message=FALSE}
+## Choose colors for each cell type
+palette <- c(
+  "Other" = "gray",
+  "7" = "gold",
+  "3" = "darkgreen",
+  "9" = "skyblue",
+  "16" = "cyan4"
+)
+
+## Plot the images featured in the manuscript
+plot_list <- funboot::plot_images(
+  data = breastcancer_data,
+  images_to_plot = c(13, 181, 246, 362, 219, 244, 246, 254),
+  cell_types_to_plot = c(7, 3, 9, 16),
+  palette = palette
+)
+
+## Each entry of plot_list corresponds to one of images_to_plot
+(plot_list[[1]] + plot_list[[2]]) /
+(plot_list[[3]] + plot_list[[4]]) /
+(plot_list[[5]] + plot_list[[6]]) /
 (plot_list[[7]] + plot_list[[8]])
-
 ```
 
 Cell types 7 (endothelial cells) and 3 (T cells) appear to be colocalized.  We can examine their colocalization curve by fitting the model
@@ -91,220 +98,289 @@ Cell types 7 (endothelial cells) and 3 (T cells) appear to be colocalized.  We c
 $$
 Y_{i}(r) = \beta_0(r) + \epsilon_i(r), \qquad i = 1, \ldots, n,
 $$
-where $Y_{i}(r)$ denotes the observed colocalization curve for T cells around endothelial cells within the image belonging to subject $i$, and performing inference on the intercept $\beta_0(r)$.  The first step is to discard images with sparse cell counts and then calculate the observed and expected spatial summary function.  Because some of these images contain holes, we apply the permutation adjustment during the calculation of the expected spatial summary function.  The process can be carried out using `funboot::preprocess_data()`.  
+where $Y_{i}(r)$ denotes the observed colocalization curve for T cells around endothelial cells within the image belonging to subject $i$.  We can then perform inference on $\mathbb{E}[Y(r)]$ by calculating a confidence band for the intercept function $\beta_0(r)$.  
+
+**Data Preprocessing**
+
+The first step is to preprocess the data and then calculate the observed and expected $L-$ function for each image.  The first preprocessing step is to discard images with sparse cell counts; in this step, we exclude images with 20 cells or less of either type. Then, because some of the images may contain missing tissue regions, we estimate the expected value of the spatial summary function under complete spatial randomness in each image using a [permutation adjustment](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900).  We calculate each image's observed colocalization curve by subtracting this expected value from the observed value of the spatial summary function in each image.  
+
+To capture the full range of spatial structure evident in the data, we calculate the summary functions across a grid ranging from `0` to `500` micrometers with increments of `1`, as the colocalization curves generally approached 0 after this range.  The entire process is carried out using `funboot::preprocess_data()`.  
 
 
 ```{r results="hide", message=FALSE, warning=FALSE, error=FALSE}
 set.seed(12345)
-sumfun_data_interaction <- funboot::preprocess_data(data=breastcancer_data, 
-                                                    from_cell=7, 
-                                                    to_cell=3,
-                                                    qc_cellcount_cutoff=20, 
-                                                    n_perm=2, 
-                                                    perm_yn=TRUE,
-                                                    r_max=500, 
-                                                    inc=1, 
-                                                    image_dims=c(0,1000,0,1000),
-                                                    summary_function="L")
 
+sumfun_data_interaction <- funboot::preprocess_data(
+  data = breastcancer_data,
+  from_cell = 7,              # Endothelial cells
+  to_cell = 3,                # T cells
+  qc_cellcount_cutoff = 20,
+  n_perm = 5,
+  perm_yn = TRUE,
+  r_max = 500,
+  inc = 1,
+  image_dims = c(0, 1000, 0, 1000),
+  summary_function = "L"
+)
 ```
 
-we can calculate and plot a confidence band for the sum of both intercepts using `funboot::wildBS_CB()` and `funboot::plot_wildBS_CB()`.
+**Inference Procedure**
+
+From the preprocessed summary function data, we can construct a confidence band for $\beta_0(r)$, using the function `funboot::wildBS_CB()`. Within this function, we let `formula = outcome ~ 1` to represent the intercept-only model. `funboot::wildBS_CB()` fits the specified functional regression model using `refund::pffr()` and then obtains the desired confidence band by applying the wild bootstrap-based inference procedure described in our manuscript. 
+
+`funboot::wildBS_CB()` uses three arguments to define the target curve, $\theta(r)$, for which inference is performed: `target`, `form`, and `func`. The character vector `target` describes which model components make up $\theta(r)$.  Specifically, each element of `target` must equal `"Intercept"` or the name of a model covariate as it appears in the dataset supplied to `funboot::preprocess_data()`.  
+
+`form` is a character vector whose elements correspond in order to each element of `target`.  The elements of `form` can be either `"term"` (indicating an entire model term $\beta(r)X(r)$) or `"coef"` (indicating just the coefficient $\beta(r)$), depending on how each corresponding component of `target` enters $\theta(r)$.  
+
+Finally, `func` accepts a function describing how each model component is combined to form $\theta(r)$. It is written as a linear combination of the elements of `target`.         
+
+To perform inference on the intercept function $\beta_0(r)$, we set the target curve to $\theta(r) =  \beta_0(r)$.  We do this by specifying `target = c("Intercept")`, `form = c("coef")`, and `func = function(Intercept){Intercept}`.  `B1` and `B2` represent the number of outer and inner bootstrap samples to be used, respectively, `alpha` represents the desired significance level of the confidence band, and `id` represents the name of the patient ID variable.    
 
 ```{r fig.width = 7, fig.height = 3, message=FALSE, warning=FALSE, error=FALSE, results="hide"}
-CB_interaction <- funboot::wildBS_CB(formula=outcome ~ 1,
-                                     data=sumfun_data_interaction,
-                                     spatial_covars = NULL,
-                                     target = c("Intercept"),
-                                     form   = c("coef"),
-                                     covar_list = list(),
-                                     func = function(Intercept){
-                                       Intercept
-                                     },
-                                     B1=2,
-                                     B2=2,
-                                     alpha=.05,
-                                     re=NULL,
-                                     nthreads = 1,
-                                     id="patient_id")
+CB_interaction <- funboot::wildBS_CB(
+  formula = outcome ~ 1,
+  data = sumfun_data_interaction,
+  target = c("Intercept"),
+  form = c("coef"),
+  func = function(Intercept) {
+    Intercept
+  },
+  B1 = 10,
+  B2 = 10,
+  alpha = 0.05,
+  id = "patient_id"
+)
 ```
 
-```{r fig2, fig.cap="**Figure 2.** Spatial distributions of selected cell types in representative breast cancer images.", fig.width = 7, fig.height = 3, warning=FALSE, message=FALSE, results="hide"}
-##Base plot
+The resulting confidence band, as well as the estimated target curve yielded by `pffr()`, can be plotted using `funboot::plot_wildBS_CB()`.  Here we overlay them with each image's observed $Y(r)$:
+
+```{r fig2, fig.cap="**Figure 2.** Estimated colocalization curve with confidence band for T cells around endothelial cells.", fig.width = 7, fig.height = 3, warning=FALSE, message=FALSE, results="hide"}
+## Base plot
 p <- funboot::plot_wildBS_CB(CB_interaction)
-##Layer for the image-specific curves
+
+## Layer for the image-specific curves
 bg_df <- data.frame(
   r = sumfun_data_interaction$r,
   y = sumfun_data_interaction$outcome,
   curve = sumfun_data_interaction$image_number
 )
+
 bg_layer <- geom_line(
   data = bg_df,
   aes(x = r, y = y, group = curve, color = "Observed Y(r)"),
   inherit.aes = FALSE,
   linewidth = 0.3
 )
-##Combine both layers and add formatting
+
+## Combine both layers and add formatting
 p$layers <- c(list(bg_layer), p$layers)
-p + ggtitle("Colocalization Curve") + 
+
+p +
+  ggtitle("Colocalization Curve") +
   labs(
     x = "r",
     y = "Y(r)"
-  ) + 
-    scale_color_manual(
+  ) +
+  scale_color_manual(
     values = c(
       "Observed Y(r)" = "gray80",
       "Confidence Band" = "#00BA38",
       "Estimated Target Curve" = "#F8766D"
     ),
     labels = c(
-      "Observed Yj(r)" = "Observed Y(r)",
+      "Observed Y(r)" = "Observed Y(r)",
       "Estimated Target Curve" = "Estimated E[Y(r)]",
       "Confidence Band" = "95% Confidence Band"
     ),
-    breaks = c("Confidence Band", "Estimated Target Curve", "Observed Y(r)")
+    breaks = c(
+      "Confidence Band",
+      "Estimated Target Curve",
+      "Observed Y(r)"
+    )
   )
-
 ```
 
-Because the confidence band crosses zero, the conclusion would be that a significant amount of interaction is present. (However, more bootstrap samples are needed for accurate results.)  The above can also be repeated for the avoidance example.
+Because the lower bound of the confidence band crosses zero, the conclusion would be that a significant amount of interaction is present, however, a larger number of bootstrap samples would be needed to obtain more reliable inference.  In our manuscript, we present results from the full bootstrap procedure, as well as repeat this analysis to identify significant cell type avoidance between small circular stromal cells and proliferative epithelial cells.
 
-Next, we incorporate covariates into the model:
+**Adding Covariates**
+
+Covariates can be incorporated into the above model. We assess the effects of patient age, tumor grade, and the $L-$ curve $\widehat{L}^{Endo,Endo}(r)$, which describes the level of spatial self-coupling of endothelial cells within the images, on the colocalization curve.  Treating tumor grade as a categorical covariate with grade 1 as the reference level yields the model
 
 $$
-Y_i(r) =  \beta_0(r) + \beta_1(r)x_{iage} + \beta_2(r)x_{igrade2} + \beta_3(r)x_{igrade3} + \beta_4(r)\widehat{L}_{iEndo,Endo}(r) + \epsilon_i(r)
+Y_i(r) =  \beta_0(r) + \beta_1(r)x_{iage} + \beta_2(r)x_{igrade2} + \beta_3(r)x_{igrade3} + \beta_4(r)\widehat{L}_{i}^{Endo,Endo}(r) + \epsilon_i(r).
 $$
+$\widehat{L}_{i}^{Endo,Endo}(r)$ is a spatial covariate.  To include it in the model, we calculate its observed value in each image using `funboot::preprocess_data()`, and merge the results into the previous dataset:  
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
-##Compute \hat{L}_{Endo,T}(r), obtaining data from 77 images (23 images removed during qc)
-sumfun_data_covariates <- funboot::preprocess_data(data=breastcancer_data,
-                                                   from_cell=7, #Endothelial cells
-                                                   to_cell=3,   #T cells
-                                                   qc_cellcount_cutoff=20,
-                                                   n_perm=2,
-                                                   perm_yn=TRUE,
-                                                   r_max=500,
-                                                   inc=1,
-                                                   image_dims=c(0,1000,0,1000),
-                                                   summary_function="L",
-                                                   verbose=TRUE)
-##Compute \hat{L}_{Endo,Endo}(r), obtaining data from 82 images (18 images removed during qc)
-spatial_cov_data <- funboot::preprocess_data(data=breastcancer_data,
-                                            from_cell=7, #Endothelial cells
-                                            to_cell=7,   #Endothelial cells
-                                            qc_cellcount_cutoff=20,
-                                            n_perm=2,
-                                            perm_yn=TRUE,
-                                            r_max=500,
-                                            inc=1,
-                                            image_dims=c(0,1000,0,1000),
-                                            summary_function="L",
-                                            verbose=TRUE)
-##Retain just \hat{L}_{Endo,Endo}(r) and no other L curves
-names(spatial_cov_data)[names(spatial_cov_data)=="L_obs"] <- "spatial_cov"
-spatial_cov_data$L_expect <- spatial_cov_data$L_pmean <- spatial_cov_data$outcome <- NULL
-##Merge the two datasets together, resulting in data from 77 images
-sumfun_data_full_covariates <- merge(sumfun_data_covariates,
-                                     spatial_cov_data,
-                                     by=c("image_number","r","patient_id","patient_age","tumor_grade"),
-                                     all=FALSE)
-##Add in indicator variables for grade
-sumfun_data_full_covariates$grade2 <- ifelse(sumfun_data_full_covariates$tumor_grade == "2", 1,
-                                             ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
-                                                    0))
-sumfun_data_full_covariates$grade3 <- ifelse(sumfun_data_full_covariates$tumor_grade == "3", 1,
-                                             ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
-                                                    0))
+## Compute \hat{L}_{Endo,Endo}(r)
+spatial_cov_data <- funboot::preprocess_data(
+  data = breastcancer_data,
+  from_cell = 7,              # Endothelial cells
+  to_cell = 7,                # Endothelial cells
+  qc_cellcount_cutoff = 20,
+  n_perm = 5,
+  perm_yn = TRUE,
+  r_max = 500,
+  inc = 1,
+  image_dims = c(0, 1000, 0, 1000),
+  summary_function = "L"
+)
+
+## Get previous dataset and prepare for merge
+sumfun_data_covariates <- sumfun_data_interaction
+names(spatial_cov_data)[names(spatial_cov_data) == "L_obs"] <- "spatial_cov"
+spatial_cov_data <- spatial_cov_data[,!names(spatial_cov_data) %in% c("L_expect", "L_pmean","outcome")]
+sumfun_data_covariates$patient_id <- as.factor(sumfun_data_covariates$patient_id)
+spatial_cov_data$patient_id <- as.factor(spatial_cov_data$patient_id)
+
+## Merge and sort the results
+sumfun_data_full_covariates <- merge(
+  sumfun_data_covariates,
+  spatial_cov_data,
+  by = c(
+    "image_number",
+    "r",
+    "patient_id",
+    "patient_age",
+    "tumor_grade"
+  ),
+  all = FALSE
+)
+sumfun_data_full_covariates <- sumfun_data_full_covariates[
+  order(
+    sumfun_data_full_covariates$image_number,
+    sumfun_data_full_covariates$r
+  ),
+]
 ```
 
-Calculating the p-value for the test of the spatial covariate:
+From the merged dataset, indicator variables are constructed to represent the tumor grade covariate:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
-CB_beta4 <- funboot::wildBS_CB(formula=outcome ~ patient_age + grade2 + grade3 + spatial_cov,
-                               data=sumfun_data_full_covariates,
-                               spatial_covars = c("spatial_cov"),
-                               target = c("spatial_cov"),
-                               form   = c("coef"),
-                               covar_list = list(),
-                               func = function(spatial_cov){
-                                 spatial_cov
-                               },
-                               B1=2,
-                               B2=2,
-                               alpha=.05,
-                               re=NULL,
-                               nthreads = 1,
-                               id="patient_id")
+sumfun_data_full_covariates$grade2 <- as.integer(
+  sumfun_data_full_covariates$tumor_grade == "2"
+)
+
+sumfun_data_full_covariates$grade3 <- as.integer(
+  sumfun_data_full_covariates$tumor_grade == "3"
+)
 ```
+
+We then use `funboot::wildBS_CB()` to fit the model with covariates and demonstrate the test of the significance of $\beta_4(r)$. 
+
+If spatial covariates are included in the model statement, they must be specified explicitly.  Here, $\widehat{L}_{i}^{Endo,Endo}(r)$, named in the dataset as `spatial_cov`, is specified as a spatial covariate by setting `spatial_covars = c("spatial_cov")`. 
+
+By setting `target = c("spatial_cov")`, `form = c("coef")`, and `func = function(spatial_cov){spatial_cov}`, we obtain a 95\% confidence band for $\beta_4(r)$:   
+
+```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
+CB_beta4 <- funboot::wildBS_CB(
+  formula = outcome ~ patient_age + grade2 + grade3 + spatial_cov,
+  data = sumfun_data_full_covariates,
+  spatial_covars = c("spatial_cov"),
+  target = c("spatial_cov"),
+  form = c("coef"),
+  func = function(spatial_cov) {
+    spatial_cov
+  },
+  B1 = 10,
+  B2 = 10,
+  alpha = 0.05,
+  id = "patient_id"
+)
+```
+
+From the confidence band, the p-value for the test of $\beta_4(r) = 0$ is calculated as follows:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 M <- max(abs((CB_beta4$target_curve_estimates - 0)/CB_beta4$target_curve_SEs))
-mean(CB_beta4$M>M) #p-value for the test of beta4(r)=0
+mean(CB_beta4$M > M) #p-value 
 ```
 
+Because $p < .05$, the conclusion from this test is that spatial self-coupling patterns of endothelial cells significantly influence the degree of colocalization of T cells around endothelial cells (though again, more bootstrap samples are needed for accurate results).
+
 ## Melanoma Data
+
+Next, we load the in-package melanoma dataset:
 
 ```{r }
 data("melanoma_data", package="funboot")
 ```
 
-Describe the relationship between CD8 T cells and blood vessels
+**Visualization**
 
-```{r fig3, fig.cap="**Figure 3.** Spatial distributions of selected cell types in representative breast cancer images. Colors represent cell phenotype.", fig.width = 7, fig.height = 6, warning=FALSE, message=FALSE}
-##Choose colors for each cell type
-palette <- c("Other" = "gray", 
-             "CD8- T cell" = "purple", 
-             "CD8+ T cell" = "orange", 
-             "Vasculature" = "cyan4")
-##Plot the images featured in the manuscript
-plot_list <- funboot::plot_images(data = melanoma_data,
-                                  images_to_plot = c(45,54,65,137), 
-                                  cell_types_to_plot = c("CD8- T cell","CD8+ T cell","Vasculature"),
-                                  palette = palette)
-##Each entry of plot_list corresponds to one of images_to_plot
-(plot_list[[1]] + plot_list[[2]])/
+This analysis focuses on the spatial relationships between CD8- T cells, CD8+ T cells, and vasculature cells.  We plot representative images as follows:  
+
+```{r fig3, fig.cap="**Figure 3.** Spatial distributions of selected cell types in representative images from the melanoma dataset.", fig.width = 7, fig.height = 6, warning=FALSE, message=FALSE}
+## Choose colors for each cell type
+palette <- c(
+  "Other" = "gray",
+  "CD8- T cell" = "purple",
+  "CD8+ T cell" = "orange",
+  "Vasculature" = "cyan4"
+)
+
+## Plot the images featured in the manuscript
+plot_list <- funboot::plot_images(
+  data = melanoma_data,
+  images_to_plot = c(45, 54, 65, 137),
+  cell_types_to_plot = c("CD8- T cell", "CD8+ T cell", "Vasculature"),
+  palette = palette
+)
+
+## Each entry of plot_list corresponds to one of images_to_plot
+(plot_list[[1]] + plot_list[[2]]) /
 (plot_list[[3]] + plot_list[[4]])
-
 ```
 
+**Modeling Colocalization in the Overall Image**
 
-We calculate the CB for the overall image regions:
+We first assess the colocalization of CD8+ T cells around CD8- T cells across the full image area, using the model
+
+$$
+Y_{ik}(r) = \beta_0(r) + b_{0i}(r) + \epsilon_{ik}(r), \qquad i = 1, \ldots, n, \qquad k = 1, \ldots, K_i.
+$$
+Because the dataset contains multiple images per patient, we include a functional random intercept, $b_{0i}(r)$, to account for within-patient correlation.  In the above, $i$ indexes patients and $k$ indexes images within patients.    
+
+The functional random intercept for the variable `patient_id` is specified in the `formula` argument as `s(patient_id, bs = "re")`, following the `pffr()` syntax for functional random intercepts.  Additionally, `re = patient_id` must be specified to designate the variable for which to fit the random effect.  
+
+As previously, `target`, `form`, and `function` are specified such that $\theta(r) = \beta_0(r)$.     
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
 set.seed(12345)
-##Compute \hat{L}_{CD8-,CD8+}(r), obtaining data from 48 images (no images removed from qc)
-sumfun_data <- funboot::preprocess_data(data=melanoma_data,
-                                        from_cell="CD8- T cell",
-                                        to_cell="CD8+ T cell",
-                                        qc_cellcount_cutoff=20,
-                                        n_perm=2,
-                                        perm_yn=TRUE,
-                                        r_max=500,
-                                        inc=1,
-                                        image_dims=c(0,1200,0,1200),
-                                        summary_function="L",
-                                        verbose=TRUE)
+
+sumfun_data <- funboot::preprocess_data(
+  data = melanoma_data,
+  from_cell = "CD8- T cell",
+  to_cell = "CD8+ T cell",
+  qc_cellcount_cutoff = 20,
+  n_perm = 5,
+  perm_yn = TRUE,
+  r_max = 500,
+  inc = 1,
+  image_dims = c(0, 1200, 0, 1200),
+  summary_function = "L"
+)
 sumfun_data$patient_id <- as.factor(sumfun_data$patient_id)
 
-##Calculate the CB
-CB_overall <- funboot::wildBS_CB(formula=outcome ~ s(patient_id, bs = "re"),
-                                 data=sumfun_data,
-                                 spatial_covars = NULL,
-                                 target = c("Intercept"),
-                                 form   = c("coef"),
-                                 covar_list = list(),
-                                 func = function(Intercept){
-                                   Intercept
-                                 },
-                                 B1=2,
-                                 B2=2,
-                                 alpha=.05,
-                                 re="patient_id",
-                                 nthreads = 1,
-                                 id="patient_id")
+CB_overall <- funboot::wildBS_CB(
+  formula = outcome ~ s(patient_id, bs = "re"),
+  data = sumfun_data,
+  target = c("Intercept"),
+  form = c("coef"),
+  func = function(Intercept) {
+    Intercept
+  },
+  B1 = 10,
+  B2 = 10,
+  alpha = 0.05,
+  re = "patient_id",
+  id = "patient_id"
+)
 ```
 
-```{r fig4, fig.cap="**Figure 2.** Spatial distributions of selected cell types in representative breast cancer images.", fig.width = 7, fig.height = 3, warning=FALSE, message=FALSE, results="hide"}
+`funboot::plot_wildBS_CB()` plots the estimated target curve and confidence band:
+
+```{r fig4, fig.cap="**Figure 4.** Estimated colocalization curve with confidence band for CD8+ T cells around CD8- T cells.", fig.width = 7, fig.height = 3, warning=FALSE, message=FALSE, results="hide"}
 p <- funboot::plot_wildBS_CB(CB_overall)
 
 p +
@@ -325,7 +401,7 @@ p +
     ),
     breaks = c("Estimated Target Curve", "Confidence Band")
   ) +
-  coord_cartesian(ylim = c(-100, 200)) +
+  coord_cartesian(ylim = c(-600, 200)) +
   theme(
     axis.title.y = element_text(size = 20),
     axis.title.x = element_text(size = 20),
@@ -336,51 +412,92 @@ p +
   )
 ```
 
-We repeat the process for avascular regions:
+The lower bound of the confidence band is positive at all radii, indicating significant colocalization.  
+
+**Modeling Colocalization Within Heterogeneous Tissue Regions**
+
+We next demonstrate how to analyze colocalization between these two cell types within regions of the tissue absent of vasculature cells.  To do this, we use the spatial covariate $\widehat{L}^{CD8-,Vas}(r)$, where $CD8-$ represents CD8- T cells and $Vas$ represents vasculature cells.  
+
+For a given radius $r$, $\widehat{L}^{CD8-,Vas}(r) = 0$ indicates that no vasculature cells are present within radius $r$ of CD8- T cells. We therefore define avascular tissue regions as regions yielding $\widehat{L}^{CD8-,Vas}(r) = 0$.  Under this definition, we can estimate the CD8+/CD8- colocalization curve in avascular tissue regions by evaluating the fitted model
+
+$$
+Y_{ik}(r) = \beta_0(r) + \beta_1(r)\widehat{L}_{ik}^{CD8-,Vas}(r) + b_{0i}(r) + \epsilon_{ik}(r), \qquad i = 1, \ldots, n, \qquad k = 1, \ldots, K_i
+$$
+
+at $\widehat{L}^{CD8-,Vas}(r) = 0$.
+
+The first step is to calculate $\widehat{L}^{CD8-,Vas}(r)$ and merge its values into the dataset:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
 set.seed(12345)
-##Compute \hat{L}_{CD8-,Vas}(r), obtaining data from 48 images (no images removed from qc)
-spatial_cov_data <- funboot::preprocess_data(melanoma_data,
-                                             from_cell="CD8- T cell",
-                                             to_cell="Vasculature",
-                                             qc_cellcount_cutoff=20,
-                                             n_perm=2,
-                                             perm_yn=TRUE,
-                                             r_max=500,
-                                             inc=1,
-                                             image_dims=c(0,1200,0,1200),
-                                             summary_function="L",
-                                             verbose=TRUE)
+
+## Compute \hat{L}_{CD8-,Vas}(r)
+spatial_cov_data <- funboot::preprocess_data(
+  data = melanoma_data,
+  from_cell = "CD8- T cell",
+  to_cell = "Vasculature",
+  qc_cellcount_cutoff = 20,
+  n_perm = 5,
+  perm_yn = TRUE,
+  r_max = 500,
+  inc = 1,
+  image_dims = c(0, 1200, 0, 1200),
+  summary_function = "L"
+)
+
+## Prepare for merge
 spatial_cov_data$patient_id <- as.factor(spatial_cov_data$patient_id)
-names(spatial_cov_data)[names(spatial_cov_data)=="L_obs"] <- "spatial_cov"
-spatial_cov_data$L_expect <- spatial_cov_data$L_pmean <- spatial_cov_data$outcome <- NULL
-sumfun_data_full <- merge(sumfun_data, 
-                          spatial_cov_data, 
-                          by=c("image_number","r","patient_id","patient_age"),
-                          all=FALSE)
-##Create a covar_list for avascular regions
-covar_list <- list(Intercept = rep(1, 501),
-                   spatial_cov = rep(0, 501))
-##Calculate the CB using that covar_list
-CB_avascular <- funboot::wildBS_CB(formula=outcome ~ spatial_cov + s(patient_id, bs = "re"),
-                                   data=sumfun_data_full,
-                                   spatial_covars = c("spatial_cov"),
-                                   target = c("Intercept","spatial_cov"),
-                                   form   = c("coef","term"),
-                                   covar_list = covar_list,
-                                   func = function(Intercept, spatial_cov){
-                                     Intercept + spatial_cov
-                                   },
-                                   B1=2,
-                                   B2=2,
-                                   alpha=.05,
-                                   re="patient_id",
-                                   nthreads = 1,
-                                   id="patient_id")
+names(spatial_cov_data)[names(spatial_cov_data) == "L_obs"] <- "spatial_cov"
+spatial_cov_data <- spatial_cov_data[,!names(spatial_cov_data) %in% c("L_expect", "L_pmean","outcome")]
+
+## Merge and sort results
+sumfun_data_full <- merge(
+  sumfun_data,
+  spatial_cov_data,
+  by = c("image_number", "r", "patient_id", "patient_age"),
+  all = FALSE
+)
+sumfun_data_full <- sumfun_data_full[
+  order(
+    sumfun_data_full$image_number,
+    sumfun_data_full$r
+  ),
+]
 ```
 
-```{r fig5, fig.cap="**Figure 2.** Spatial distributions of selected cell types in representative breast cancer images.", fig.width = 7, fig.height = 3, warning=FALSE, message=FALSE, results="hide"}
+To evaluate the fitted model at $\widehat{L}^{CD8-,Vas}(r) = 0$, we create a list called `covar_list`, which acts as a design matrix assigning the value 0 to `spatial_cov` at all radii.  
+
+```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
+covar_list <- list(
+  Intercept = rep(1, 501),
+  spatial_cov = rep(0, 501)
+)
+``` 
+
+We then calculate the desired confidence band, specifying `target`, `form`, `func`, and `covar_list` such that $\theta(r) = \beta_0(r) + \beta_1(r) \times 0$.  
+
+```{r message=FALSE, warning=FALSE, error=FALSE, results="hide"}
+CB_avascular <- funboot::wildBS_CB(
+  formula = outcome ~ spatial_cov + s(patient_id, bs = "re"),
+  data = sumfun_data_full,
+  spatial_covars = c("spatial_cov"),
+  target = c("Intercept", "spatial_cov"),
+  form = c("coef", "term"),
+  covar_list = covar_list,
+  func = function(Intercept, spatial_cov) {
+    Intercept + spatial_cov
+  },
+  B1 = 10,
+  B2 = 10,
+  alpha = 0.05,
+  re = "patient_id",
+  id = "patient_id"
+)
+```
+
+`funboot::plot_wildBS_CB()` plots the result:
+
+```{r fig5, fig.cap="**Figure 5.** Estimated colocalization curve with confidence band for CD8+ T cells around CD8- T cells in avascular regions.", fig.width = 7, fig.height = 3, warning=FALSE, message=FALSE, results="hide"}
 p <- funboot::plot_wildBS_CB(CB_avascular)
 
 p +
@@ -401,7 +518,7 @@ p +
     ),
     breaks = c("Estimated Target Curve", "Confidence Band")
   ) +
-  coord_cartesian(ylim = c(-100, 200)) +
+  coord_cartesian(ylim = c(-600, 200)) +
   theme(
     axis.title.y = element_text(size = 20),
     axis.title.x = element_text(size = 20),
@@ -412,4 +529,8 @@ p +
   )
 ```
 
+In the above, the confidence band shows that the estimated colocalization curve is not significantly different from 0.  This indicates that although CD8- and CD8+ T cells showed a net positive colocalization across the full image area, the same pattern is not evident in avascular regions.  The representative images in Figure 3 support this conclusion, as the two types of T cells are seen closest together in regions that also contain vasculature.      
+
 ## Conclusion
+
+This tutorial demonstrates how to model cell type colocalization in multiplex imaging datasets using the concurrent functional regression framework and wild bootstrap inference procedure described in our manuscript.  Applications of this analysis framework include not only basic modeling of colocalization curves but also visualization of their confidence bands, patient-level and spatial covariate adjustment, significance testing of colocalization curves and/or model coefficient functions, and colocalization modeling within heterogeneous tissue regions whose boundaries are defined by the absence of a particular cell type.  Together, the analysis framework provides a principled approach for describing single-cell spatial patterns in the tissue microenvironment and assessing how cell-cell relationships vary with clinical, biological, and spatial features.  The `funboot` package facilitates these analyses through integrated simulation and visualization functions.

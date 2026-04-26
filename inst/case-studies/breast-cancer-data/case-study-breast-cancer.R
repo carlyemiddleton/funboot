@@ -752,7 +752,7 @@ image_write(img, "annotated_breast-cancer.png")
 
 #-------------- Model with covariates ---------------------------------------------------------------------------------------------
 set.seed(12345)
-##Compute \hat{L}_{Endo,T}(r), obtaining data from 76 images (image 249 has 0 type 3 cells, and 23 images were removed during qc)
+##Compute \hat{L}_{Endo,T}(r), obtaining data from 77 images (23 images removed during qc)
 sumfun_data_covariates <- funboot::preprocess_data(data=breastcancer_data,
                                                    from_cell=7, #Endothelial cells
                                                    to_cell=3,   #T cells
@@ -762,36 +762,41 @@ sumfun_data_covariates <- funboot::preprocess_data(data=breastcancer_data,
                                                    r_max=500,
                                                    inc=1,
                                                    image_dims=c(0,1000,0,1000),
-                                                   summary_function='L',
+                                                   summary_function="L",
                                                    verbose=TRUE)
-##Compute \hat{L}_{Endo,Endo}(r), obtaining data from 48 images (52 images were removed during qc)
-spatialcov_data <- funboot::preprocess_data(data=breastcancer_data,
-                                            from_cell=7, #Endothelial cells
-                                            to_cell=7,   #Endothelial cells
-                                            qc_cellcount_cutoff=20,
-                                            n_perm=100,
-                                            perm_yn=TRUE,
-                                            r_max=500,
-                                            inc=1,
-                                            image_dims=c(0,1000,0,1000),
-                                            summary_function='L',
-                                            verbose=TRUE)
-#Retain just \hat{L}_{Endo,Endo}(r) and no other L curves
-names(spatialcov_data)[names(spatialcov_data)=='L_obs'] <- 'spatial_cov'
-spatialcov_data$L_expect <- spatialcov_data$L_pmean <- spatialcov_data$outcome <- NULL
-##Merge the two datasets together, resulting in data from 48 images
+sumfun_data_covariates$patient_id <- as.factor(sumfun_data_covariates$patient_id)
+##Compute \hat{L}_{Endo,Endo}(r), obtaining data from 82 images (18 images removed during qc)
+spatial_cov_data <- funboot::preprocess_data(data=breastcancer_data,
+                                             from_cell=7, #Endothelial cells
+                                             to_cell=7,   #Endothelial cells
+                                             qc_cellcount_cutoff=20,
+                                             n_perm=100,
+                                             perm_yn=TRUE,
+                                             r_max=500,
+                                             inc=1,
+                                             image_dims=c(0,1000,0,1000),
+                                             summary_function="L",
+                                             verbose=TRUE)
+spatial_cov_data$patient_id <- as.factor(spatial_cov_data$patient_id)
+##Retain just \hat{L}_{Endo,Endo}(r) and no other L curves
+names(spatial_cov_data)[names(spatial_cov_data)=="L_obs"] <- "spatial_cov"
+spatial_cov_data$L_expect <- spatial_cov_data$L_pmean <- spatial_cov_data$outcome <- NULL
+##Merge the two datasets together, resulting in data from 77 images
 sumfun_data_full_covariates <- merge(sumfun_data_covariates,
-                                     spatialcov_data,
-                                     by=c('image_number','r','patient_id','patient_age','tumor_grade'),
+                                     spatial_cov_data,
+                                     by=c("image_number","r","patient_id","patient_age","tumor_grade"),
                                      all=FALSE)
+sumfun_data_full_covariates <- sumfun_data_full_covariates[
+  order(sumfun_data_full_covariates$image_number,
+        sumfun_data_full_covariates$r),
+]
 ##Add in indicator variables for grade
-sumfun_data_full_covariates$grade2 <- ifelse(sumfun_data_full_covariates$tumor_grade == '2', 1,
+sumfun_data_full_covariates$grade2 <- ifelse(sumfun_data_full_covariates$tumor_grade == "2", 1,
                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
                                                     0))
-sumfun_data_full_covariates$grade3 <- ifelse(sumfun_data_full_covariates$tumor_grade == '3', 1,
+sumfun_data_full_covariates$grade3 <- ifelse(sumfun_data_full_covariates$tumor_grade == "3", 1,
                                              ifelse(is.na(sumfun_data_full_covariates$tumor_grade), NA,
                                                     0))
-
 # set.seed(12345)
 #
 # sumfun_data_covariates <- preprocess_data(data=breastcancer_data,
