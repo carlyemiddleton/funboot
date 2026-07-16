@@ -55,6 +55,12 @@ browseVignettes("funboot")
 ```
 Alternatively, a pre-rendered version of it is accessible [here](https://htmlpreview.github.io/?https://github.com/carlyemiddleton/funboot/blob/main/vignettes/funboot.html).
 
+
+## Reproducibility
+
+Code for reproducing all study results is located in the [`case-studies/`](case-studies/) and [`simulations/`](simulations/) folders.
+
+
 ## Session Info 
 
 ```
