@@ -20,6 +20,6 @@ A data frame with 307931 rows and 7 variables:
 melanoma_data
 }
 \description{
-DESCRIPTION
+7 variables taken from the 2022 \href{https://bodenmillergroup.github.io/imcdatasets/}{Hoch-Schulz melanoma data subset}, and re-named to follow the input format for \emph{funboot.}  Each row of the data corresponds to one cell.
 }
 \keyword{datasets}

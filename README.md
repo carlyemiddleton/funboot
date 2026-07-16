@@ -34,13 +34,11 @@ data("melanoma_data", package="funboot")
 
 ## Vignette
 
-The package contains a vignette, which can be built during the install:
+The package contains a vignette, which can be built during the installation:
 
 ```
 devtools::install_github('carlyemiddleton/funboot', build_vignettes = TRUE)
 browseVignettes("funboot")
 ```
 Alternatively, a pre-rendered verison of it is accessible [here](https://htmlpreview.github.io/?https://github.com/carlyemiddleton/funboot/blob/main/vignettes/funboot.html).
-
-The vignette takes about 4 minutes to build on a standard laptop computer with 8 cores and a 2.3 GHz processor.  
 

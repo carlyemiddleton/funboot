@@ -7,15 +7,25 @@ library(imcdatasets)
 ##100-image subset of breast dataset
 breast.sce <- JacksonFischer_2020_BreastCancer("sce", full_dataset = F)
 View(colData(breast.sce))
-range(colData(breast.sce)$cell_x) #note:  the window dimensions appear to be 1000 x 1000
+range(colData(breast.sce)$cell_x)
 range(colData(breast.sce)$cell_y)
 
 colData(breast.sce)
-breastcancer_data <- data.frame(breast.sce$patient_id, breast.sce$image_number, breast.sce$cell_id, breast.sce$cell_x, breast.sce$cell_y, breast.sce$cell_metacluster,
-                   breast.sce$patient_age,
-                   breast.sce$tumor_grade)
-names(breastcancer_data) <- c('patient_id','image_number','cell_id','cell_x','cell_y','cell_type',
-                 'patient_age',
-                 'tumor_grade')
+breastcancer_data <- data.frame(breast.sce$patient_id,
+                                breast.sce$image_number,
+                                breast.sce$cell_id,
+                                breast.sce$cell_x,
+                                breast.sce$cell_y,
+                                breast.sce$cell_metacluster,
+                                breast.sce$patient_age,
+                                breast.sce$tumor_grade)
+names(breastcancer_data) <- c('patient_id',
+                              'image_number',
+                              'cell_id',
+                              'cell_x',
+                              'cell_y',
+                              'cell_type',
+                              'patient_age',
+                              'tumor_grade')
 
 usethis::use_data(breastcancer_data, overwrite = TRUE)

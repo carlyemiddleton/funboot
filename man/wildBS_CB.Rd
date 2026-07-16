@@ -48,7 +48,7 @@ wildBS_CB(
 \item{nthreads}{Number of parallel threads to use in the call to \code{refund::pffr()}}
 }
 \value{
-A list containing, for each evaluation radius: the lower and upper bounds of the confidence band, estimated values of the target curve, and the standard deviation of outer bootstrap target curve estimates.  Also returns the grid of evaluation radii, the critical value, and the bootstrap distribution of the statistic \code{M}.
+A list containing, for each evaluation radius: the lower and upper bounds of the confidence band, estimated values of the target curve, and the standard deviation of outer bootstrap target curve estimates.  Also returns the grid of evaluation radii, the critical value, and the bootstrap distribution of the statistic \code{T}.
 }
 \description{
 Calculates wild bootstrap-based confidence bands for linear combinations of functional regression coefficients

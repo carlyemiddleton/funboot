@@ -2,3 +2,5 @@
 ^\.Rproj\.user$
 ^data-raw$
 ^LICENSE\.md$
+^case-studies$
+^simulations$

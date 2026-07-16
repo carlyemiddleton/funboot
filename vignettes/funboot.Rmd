@@ -23,7 +23,7 @@ This vignette introduces the R package `funboot`.  In the following, we demonstr
 
 We illustrate this workflow by reproducing our manuscript's real data analyses of the publicly available [Jackson-Fischer breast cancer](https://bodenmillergroup.github.io/imcdatasets/reference/JacksonFischer_2020_BreastCancer.html) and [Hoch-Schulz melanoma](https://bodenmillergroup.github.io/imcdatasets/reference/HochSchulz_2022_Melanoma.html) imaging mass cytometry datasets.
 
-Although a minimum of `B1 = 50` outer and `B2 = 50` inner bootstrap samples and `n_perm = 50` to `100` permuted spatial summary functions are generally recommended in practice, this vignette uses `B1 = B2 = 10` and `n_perm = 5` to reduce computation time. 
+Although a minimum of `B1 = B2 = 50` to `100` outer and inner bootstrap samples and `n_perm = 50` to `100` permuted spatial summary functions are generally recommended in practice, this vignette uses `B1 = B2 = 10` and `n_perm = 5` to reduce computation time. 
 
 
 
@@ -102,7 +102,7 @@ where $Y_{i}(r)$ denotes the observed colocalization curve for T cells around en
 
 **Data Preprocessing**
 
-The first step is to preprocess the data and then calculate the observed and expected $L-$ function for each image.  The first preprocessing step is to discard images with sparse cell counts; in this step, we exclude images with 20 cells or less of either type. Then, because some of the images may contain missing tissue regions, we estimate the expected value of the spatial summary function under complete spatial randomness in each image using a [permutation adjustment](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900).  We calculate each image's observed colocalization curve by subtracting this expected value from the observed value of the spatial summary function in each image.  
+The first step is to preprocess the data and then calculate the observed and expected $L$-function for each image.  The first preprocessing step is to discard images with sparse cell counts; in this step, we exclude images with 20 cells or less of either type. Then, because some of the images may contain missing tissue regions, we estimate the expected value of the spatial summary function under complete spatial randomness in each image using a [permutation adjustment](https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1009900).  We calculate each image's observed colocalization curve by subtracting this expected value from the observed value of the spatial summary function in each image.  
 
 To capture the full range of spatial structure evident in the data, we calculate the summary functions across a grid ranging from `0` to `500` micrometers with increments of `1`, as the colocalization curves generally approached 0 after this range.  The entire process is carried out using `funboot::preprocess_data()`.  
 
@@ -292,8 +292,8 @@ CB_beta4 <- funboot::wildBS_CB(
 From the confidence band, the p-value for the test of $\beta_4(r) = 0$ is calculated as follows:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-M <- max(abs((CB_beta4$target_curve_estimates - 0)/CB_beta4$target_curve_SEs))
-mean(CB_beta4$M > M) #p-value 
+T <- max(abs((CB_beta4$target_curve_estimates - 0)/CB_beta4$target_curve_SEs))
+mean(CB_beta4$T > T) #p-value 
 ```
 
 Because $p < .05$, the conclusion from this test is that spatial self-coupling patterns of endothelial cells significantly influence the degree of colocalization of T cells around endothelial cells (though again, more bootstrap samples are needed for accurate results).

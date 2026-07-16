@@ -1,6 +1,6 @@
 #' Jackson-Fischer Breast Cancer Data Subset
 #'
-#' Eight variables taken from the 100-image subset of the 2020 [Jackson-Fischer breast cancer dataset](https://bodenmillergroup.github.io/imcdatasets/), and re-named to follow the input format for *funboot.*  Each row of the data corresponds to one cell.
+#' Eight variables taken from the 100-image subset of the 2020 \href{https://bodenmillergroup.github.io/imcdatasets/}{Jackson-Fischer breast cancer dataset}, and re-named to follow the input format for *funboot.*  Each row of the data corresponds to one cell.
 #'
 #' @format A data frame with 285851 rows and 8 variables:
 #' \describe{
@@ -9,7 +9,7 @@
 #'   \item{cell_id}{Cell ID}
 #'   \item{cell_x}{X coordinate of the cell on the image}
 #'   \item{cell_y}{Y coordinate of the cell on the image}
-#'   \item{cell_type}{Cell metacluster number (see the dataset's publication)}
+#'   \item{cell_type}{Cell metacluster number (see  \href{https://doi.org/10.1038/s41586-019-1876-x}{Jackson et al.})}
 #'   \item{patient_age}{Patient age in years}
 #'   \item{tumor_grade}{Grade of tumor (either 1, 2 or 3)}
 #' }

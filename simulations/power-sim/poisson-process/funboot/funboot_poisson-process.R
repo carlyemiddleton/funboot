@@ -1,0 +1,646 @@
+library(parallel)
+
+#------------ Setup ----------------------------------------------------------------------------------------------
+nCores <- 24
+nthreads <- 1
+B1 <- 100
+B2 <- 100
+alpha <- 0.05
+seed <- 12345
+
+nSim <- 500      #number of datasets
+nPatients <- 100 #number of patients per dataset
+nIm <- 1         #number of images per patient
+counts <- seq(100, 400, by = 10)
+sigma  <- 20     #Also change to 40,60,80,100
+delta <- 0       #Also change to sigma/10, sigma/5, sigma/2
+
+progress_file <- "sim_progress.RData"
+
+#------------ Define analysis functions ---------------------------------------------------------------------------
+##The functions are written out explicitly here in order to keep simulation results reproducible and self-contained in case of package updates.
+
+format_spatial_variable <- function(data, spatial_variable, grid, id){
+  column <- function(i){data[data[id] == i,][spatial_variable][1] } #calling the outcome function Y
+  mat_transpose <- data.frame(grid = grid)
+  for(i in sort(unique(data[id])[[1]])){
+    mat_transpose <- cbind(mat_transpose, column(i))
+  }
+  mat <- t(mat_transpose[,-c(1)])
+  return(mat)
+}
+
+preprocess_data <- function(data,
+                            from_cell,
+                            to_cell,
+                            qc_cellcount_cutoff=0,
+                            n_perm=50,
+                            perm_yn=FALSE,
+                            r_max=200,
+                            inc=1,
+                            image_dims,
+                            summary_function='L',
+                            verbose=TRUE){
+  image_xmax <- image_dims[2]
+  image_ymax <- image_dims[4]
+  image_xmin <- image_dims[1]
+  image_ymin <- image_dims[3]
+  W <- spatstat.geom::owin(c(image_xmin,image_xmax),
+                           c(image_ymin,image_ymax))
+
+  #########################
+  ##Calculate sumfun_data #
+  #########################
+
+  if(!(summary_function %in% c('K', 'L', 'g'))){
+    stop("summary_function must be one of 'K', 'L', or 'g' ")
+  }
+
+  Kdata <- K_pmean_vec <- NULL
+  if(summary_function=='L'){
+    L_pmean_vec <- NULL
+  }
+  if(summary_function=='g'){
+    gdata<- g_pmean_vec <- NULL
+  }
+  for(i in unique(data$image_number)){
+    from_count <- sum(data$image_number == i & data$cell_type == from_cell)
+    to_count <- sum(data$image_number == i & data$cell_type == to_cell)
+
+    if(from_count > qc_cellcount_cutoff &
+       to_count > qc_cellcount_cutoff){ #quality control criteria
+      qc_data <- data[data$image_number == i,]
+      if(perm_yn==TRUE){
+        permuted_K <- NULL
+        if(summary_function=='L'){
+          permuted_L <- NULL
+        }
+        if(summary_function=='g'){
+          permuted_g <- NULL
+        }
+        for(p in 1:n_perm){
+          ppp <- spatstat.geom::ppp(x = qc_data$cell_x,
+                                    y = qc_data$cell_y,
+                                    marks = factor(sample(qc_data$cell_type,
+                                                          size=length(qc_data$cell_type),
+                                                          replace = FALSE)
+                                    ),
+                                    window = W)
+          Kdata_temp <- data.frame(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ), image=i)
+          permuted_K <- cbind(permuted_K, Kdata_temp$iso)
+          if(summary_function=='L'){permuted_L <- sqrt(permuted_K/pi)}
+          if(summary_function=='g'){
+            gdata_temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ),
+                                                           method='c', divisor ="d"), image=i)
+            permuted_g <- cbind(permuted_g, gdata_temp$pcf)
+          }
+        }
+        K_pmean <- apply(permuted_K, 1, mean);  K_pmean_vec <- c(K_pmean_vec, K_pmean)
+        if(summary_function=='L'){
+          L_pmean <- apply(permuted_L, 1, mean); L_pmean_vec <- c(L_pmean_vec, L_pmean)
+        }
+        if(summary_function=='g'){
+          g_pmean <- apply(permuted_g, 1, mean); g_pmean_vec <- c(g_pmean_vec, g_pmean)
+        }
+        if (verbose) message(paste0('permuted outcome for image ',i,' calculated'))
+      }
+      ppp <- spatstat.geom::ppp(x = qc_data$cell_x, y = qc_data$cell_y,
+                                marks = factor(qc_data$cell_type), window = W)
+      Kdata_temp <- data.frame(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ), image=i)
+      names(Kdata_temp) <- c('r','K_expect','K_obs','image_number')
+      Kdata <- rbind(Kdata, Kdata_temp)
+      if(summary_function=='g'){
+        gdata_temp <- data.frame(spatstat.explore::pcf(spatstat.explore::Kcross(ppp, i = from_cell, j = to_cell, correction='Ripley', r=seq(0,r_max,by=inc) ),
+                                                       method='c', divisor ="d"), image=i)
+        names(gdata_temp) <- c('r','g_expect','g_obs','image_number')
+        gdata <- rbind(gdata, gdata_temp)
+      }
+    }else if(from_count > qc_cellcount_cutoff &
+             to_count == 0){
+      r_grid <- seq(0, r_max, by = inc)
+
+      Kdata_temp <- data.frame(
+        r = r_grid,
+        K_expect = NA_real_,
+        K_obs = 0,
+        image_number = i
+      )
+      Kdata <- rbind(Kdata, Kdata_temp)
+
+      if(summary_function=='g'){
+        gdata_temp <- data.frame(
+          r = r_grid,
+          g_expect = NA_real_,
+          g_obs = 0,
+          image_number = i
+        )
+        gdata <- rbind(gdata, gdata_temp)
+      }
+
+      if(perm_yn==TRUE){
+        K_pmean_vec <- c(K_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        if(summary_function=='L'){
+          L_pmean_vec <- c(L_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+        if(summary_function=='g'){
+          g_pmean_vec <- c(g_pmean_vec, rep(NA_real_, nrow(Kdata_temp)))
+        }
+      }
+    }
+  }
+  #Calculate the outcome variable
+  if(summary_function=='L'){
+    sumfun_data <- Kdata
+    sumfun_data$K_expect <- sqrt(sumfun_data$K_expect/pi)
+    sumfun_data$K_obs <- sqrt(sumfun_data$K_obs/pi)
+    names(sumfun_data) <- c('r','L_expect','L_obs','image_number')
+    if(perm_yn==TRUE){
+      sumfun_data$L_pmean <- L_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_pmean) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_pmean)
+    }else{
+      sumfun_data$L_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$L_expect) & sumfun_data$L_obs == 0,
+                                    0,
+                                    sumfun_data$L_obs - sumfun_data$L_expect)
+    }
+    names(sumfun_data) <- c('r','L_expect','L_obs','image_number','L_pmean','outcome')
+  }else if(summary_function=='g'){
+    sumfun_data <- gdata
+    if(perm_yn==TRUE){
+      sumfun_data$g_pmean <- g_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_pmean) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_pmean)
+    }else{
+      sumfun_data$g_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$g_expect) & sumfun_data$g_obs == 0,
+                                    0,
+                                    sumfun_data$g_obs - sumfun_data$g_expect)
+    }
+    names(sumfun_data) <- c('r','g_expect','g_obs','image_number','g_pmean','outcome')
+  }else{
+    sumfun_data <- Kdata
+    if(perm_yn==TRUE){
+      sumfun_data$K_pmean <- K_pmean_vec
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_pmean) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_pmean)
+    }else{
+      sumfun_data$K_pmean <- NA
+      sumfun_data$outcome <- ifelse(is.na(sumfun_data$K_expect) & sumfun_data$K_obs == 0,
+                                    0,
+                                    sumfun_data$K_obs - sumfun_data$K_expect)
+    }
+    names(sumfun_data) <- c('r','K_expect','K_obs','image_number','K_pmean','outcome')
+  }
+  covariate_df <- data
+  covariate_df$cell_id <- covariate_df$cell_x <- covariate_df$cell_y <- covariate_df$cell_type <- NULL
+  covariate_df <- unique(covariate_df)
+  sumfun_data <- merge(sumfun_data, covariate_df, by='image_number'
+                       , all=FALSE) #all=FALSE:  if an image doesn't meet the qc_cutoff, don't include it
+  return(sumfun_data)
+}
+
+extract_target_curve <- function(model,
+                                 grid,
+                                 target,
+                                 form,
+                                 covar_list = list(),
+                                 func) {
+
+  #Possible errors
+  if (length(target) == 0) stop("No symbols found in target.")
+  if (length(form) != length(target)) {
+    stop("form must have length equal to the number of variables in target (",
+         length(target), "). The length given was ", length(form), ".")
+  }
+  if (any(!form %in% c("coef", "term"))) {
+    stop('Each entry of form must be either "coef" or "term".')
+  }
+  if (!is.function(func)) stop("func must be a function.")
+  if (any(names(formals(func)) != target)) stop("Arguments of func must match target.")
+  if (any(names(covar_list) != target)) stop("Names of covar_list must match target.")
+
+  #Extract components
+  sm <- stats::coef(model, n1 = length(grid))$smterms
+  get_beta <- function(name) {
+    name <- paste0(name, "(grid)")
+    if (name %in% names(sm)) result <- sm[[name]]$coef$value
+    if (length(result) > length(grid)) stop("Multiple smooth terms match for ", name)
+    if (length(result) == 0)stop("No smooth term found matching ", name)
+    if (name == 'Intercept(grid)'){
+      result <- result + rep(summary(model)$p.coeff, length(grid)) #include the constant component of beta0
+    }
+    return(result)
+  }
+
+  #Prepare the list to perform func on
+  components <- vector("list", length(target))
+  names(components) <- target
+  for (i in seq_along(target)) {
+    v <- target[[i]]
+    beta_v <- get_beta(v)
+    components[[i]] <- if (form[[i]] == "coef") beta_v else beta_v * covar_list[[i]]
+  }
+  return(unname(do.call(func, components)))
+}
+
+get_fixed_and_re <- function(model, n_Im_total, grid, id) {
+  Tm <- mgcv::predict.gam(model, type = "terms")
+  nm <- colnames(Tm)
+  re_col <- grep(id, nm)
+  if (length(re_col) == 0) re_col <- NULL #if no RE, delete re_col and return NA for b0
+  fx_cols <- grep("^(?!ti\\()", nm, perl = TRUE) #Get all columns that are NOT random effects
+  if (length(fx_cols) == 0) stop("Could not find fixed effects.")
+
+  b0 <- matrix(Tm[, re_col], nrow = n_Im_total, ncol = length(grid), byrow = TRUE)
+  fixed <- matrix(rowSums(Tm[, fx_cols, drop = FALSE]) + as.numeric(summary(model)$p.coeff),
+                  nrow = n_Im_total, ncol = length(grid), byrow = TRUE)
+  list(fixed = fixed, b0 = b0)
+}
+
+wildBS_CB <- function(formula,
+                      data,
+                      spatial_covars = NULL,
+                      target,
+                      form,
+                      covar_list=list(),
+                      func,
+                      B1,
+                      B2,
+                      alpha=.05,
+                      re=NULL,
+                      id,
+                      nthreads = 1){
+
+  ####################
+  ## Format dataset ##
+  ####################
+
+  n_patients <- dim(unique(data['patient_id']))[1]
+  n_Im_total <- dim(unique(data['image_number']))[1]
+  grid <- sort(unique(data$r))
+
+  #format image-level covariates
+  image_level_covars <- unique(
+    data.frame(
+      data[["image_number"]],
+      data[all.vars(formula)[c(-1, -which(all.vars(formula) %in% spatial_covars))]]
+    )
+  )
+  names(image_level_covars)[1] <- 'image_number'
+  pffr_data <- image_level_covars
+  if(dim(pffr_data)[1]!=n_Im_total){stop('spatial_covars argument may be invalid')}
+
+  #format outcome function
+  outcome <- format_spatial_variable(
+    data = data,
+    spatial_variable = "outcome",
+    grid = grid,
+    id = "image_number"
+  )
+  pffr_data$outcome <- outcome
+
+  #format spatial covariates
+  if (!is.null(spatial_covars)) {
+    for (i in seq_along(spatial_covars)) {
+      pffr_data$temp <- format_spatial_variable(
+        data = data,
+        spatial_variable = spatial_covars[i],
+        grid = grid,
+        id = "image_number"
+      )
+      names(pffr_data)[names(pffr_data) == "temp"] <- paste0(spatial_covars[i])
+    }
+  }
+
+  pffr_data <- as.data.frame(pffr_data)
+
+  ###############
+  ## Fit model ##
+  ###############
+
+  pffrmodel <- refund::pffr(
+    formula   = formula,
+    data      = pffr_data,
+    yind      = grid,
+    algorithm = "bam",
+    discrete  = TRUE,
+    nthreads  = nthreads
+  )
+
+  #Get estimates and extract target curve
+  pred_mat <- stats::predict(pffrmodel)
+  epsilon <- outcome - pred_mat
+  fixed_and_b0 <- get_fixed_and_re(model=pffrmodel, n_Im_total=n_Im_total, grid=grid, id=id)
+  fixed <- fixed_and_b0$fixed
+  if(!is.null(re)){b0 <- fixed_and_b0$b0}
+  if(is.null(re)){b0 <- matrix(0, nrow=n_Im_total, ncol=length(grid))}
+  target_curve <- extract_target_curve(model=pffrmodel,
+                                       grid=grid,
+                                       target=target,
+                                       form=form,
+                                       covar_list = covar_list,
+                                       func=func)
+
+
+  ###########################
+  ## Outer bootstrap layer ##
+  ###########################
+
+  #Image-level multipliers
+  c_img <- 2 * stats::rbinom(n_Im_total * B1, size = 1, prob = .5) - 1 #1 or -1
+  c_img <- matrix(c_img, nrow = n_Im_total, ncol = B1)
+  #Patient-level multipliers
+  if(!is.null(re)){
+    c_patient <- 2 * stats::rbinom(n_patients * B1, size = 1, prob = .5) - 1 #1 or -1
+    c_patient <- matrix(c_patient, nrow = n_patients, ncol = B1)
+    c_patient_df <- merge(pffr_data[, c("image_number", "patient_id")],
+                          data.frame(patient_id = unique(pffr_data$patient_id),
+                                     c_patient),
+                          by = "patient_id",
+                          all.x = TRUE)
+    ord <- match(pffr_data$image_number, c_patient_df$image_number)
+    c_patient <- as.matrix(c_patient_df[ord, -(1:2), drop = FALSE])
+  }else{
+    c_patient <- matrix(0, nrow = n_Im_total, ncol = B1)
+  }
+  #Storage
+  M <- numeric(B1)
+  target_curve_outer <- matrix(NA, nrow = B1, ncol = length(grid))
+
+  #Do the outer layer bootstrap
+  for (b1 in 1:B1) {
+    #resample data
+    Y_mat_bs <- fixed + c_patient[, b1] * b0 + c_img[, b1] * epsilon
+    #fit model and get estimates
+    pffr_data_bs <- pffr_data
+    pffr_data_bs$Y_mat_bs <- Y_mat_bs
+    formula_bs <- stats::update.formula(formula, stats::as.formula('Y_mat_bs ~ .'))
+    pffrmodel_bs <- refund::pffr(
+      formula_bs,
+      data = pffr_data_bs,
+      yind = grid,
+      algorithm = "bam",
+      discrete = TRUE,
+      nthreads = nthreads
+    )
+    pred_mat_bs <- stats::predict(pffrmodel_bs)
+    epsilon_bs <- Y_mat_bs - pred_mat_bs
+    fixed_and_b0_bs <- get_fixed_and_re(model=pffrmodel_bs, n_Im_total=n_Im_total, grid=grid, id=id)
+    fixed_bs <- fixed_and_b0_bs$fixed
+    if(!is.null(re)){b0_bs <- fixed_and_b0_bs$b0}
+    if(is.null(re)){b0_bs <- matrix(0, nrow=n_Im_total, ncol=length(grid))}
+    target_curve_bs <- extract_target_curve(model=pffrmodel_bs,
+                                            grid=grid,
+                                            target=target,
+                                            form=form,
+                                            covar_list = covar_list,
+                                            func=func)
+
+    ###########################
+    ## Inner bootstrap layer ##
+    ###########################
+
+    #Image-level multipliers
+    c_img_bs <- 2 * stats::rbinom(n_Im_total * B2, size = 1, prob = .5) - 1 #1 or -1
+    c_img_bs <- matrix(c_img_bs, nrow = n_Im_total, ncol = B2)
+    #Patient-level multipliers
+    if(!is.null(re)){
+      c_patient_bs <- 2 * stats::rbinom(n_patients * B2, size = 1, prob = .5) - 1 #1 or -1
+      c_patient_bs <- matrix(c_patient_bs, nrow = n_patients, ncol = B2)
+      c_patient_df_bs <- merge(pffr_data_bs[, c("image_number", "patient_id")],
+                               data.frame(patient_id = unique(pffr_data_bs$patient_id),
+                                          c_patient_bs),
+                               by = "patient_id",
+                               all.x = TRUE)
+      ord_bs <- match(pffr_data_bs$image_number, c_patient_df_bs$image_number)
+      c_patient_bs <- as.matrix(c_patient_df_bs[ord_bs, -(1:2), drop = FALSE])
+    }else{
+      c_patient_bs <- matrix(0, nrow = n_Im_total, ncol = B2)
+    }
+
+    M_inner <- matrix(NA, nrow = B2, ncol = length(grid))
+    for (b2 in 1:B2) {
+      #Resample data
+      Y_mat_bs_bs <- fixed_bs + c_patient_bs[, b2] * b0_bs + c_img_bs[, b2] * epsilon_bs
+      #fit model and get estimates
+      pffr_data_bs_bs <- pffr_data_bs
+      pffr_data_bs_bs$Y_mat_bs_bs <- Y_mat_bs_bs
+      formula_bs_bs <- stats::update.formula(formula_bs, stats::as.formula('Y_mat_bs_bs ~ .'))
+      pffrmodel_bs_bs <- refund::pffr(
+        formula_bs_bs,
+        data = pffr_data_bs_bs,
+        yind = grid,
+        algorithm = "bam",
+        discrete = TRUE,
+        nthreads = nthreads
+      )
+      target_curve_bs_bs <- extract_target_curve(model=pffrmodel_bs_bs,
+                                                 grid=grid,
+                                                 target=target,
+                                                 form=form,
+                                                 covar_list = covar_list,
+                                                 func=func)
+      M_inner[b2,] <- target_curve_bs_bs
+    }
+    SEs_inner <- apply(M_inner, 2, stats::sd)
+    SEs_inner <- pmax(SEs_inner, 1e-8) #avoid potential division by 0
+    M[b1] <- max(abs((target_curve_bs-target_curve)/SEs_inner))
+    target_curve_outer[b1,] <- target_curve_bs
+  }
+
+  #########################
+  ## Get confidence band ##
+  #########################
+
+  q <- stats::quantile(M, 1-alpha)
+
+  target_curve_SEs <- apply(target_curve_outer, 2, stats::sd)
+  MoE <- q * target_curve_SEs
+  CB_lower <- target_curve - MoE
+  CB_upper <- target_curve + MoE
+  CBs <- list(CB_lower, CB_upper, grid, target_curve, target_curve_SEs, q, M)
+  names(CBs) <- c('CB_lower','CB_upper', 'grid', 'target_curve_estimates', 'target_curve_SEs', 'q', 'M')
+  return(CBs)
+}
+
+#------------ Define simulation functions -------------------------------------------------------------------------
+#Function to simulate 1 draw of data and calculate CB. To be repeated nSim times:
+sim <- function(iter,
+                nPatients,
+                nIm,
+                counts,
+                sigma,
+                delta,
+                alpha,
+                B1,
+                B2,
+                nthreads,
+                seed){
+
+  set.seed(iter+seed)
+
+  ##Simulate data from Poisson point process
+  #Same setup as in https://github.com/nickcee/spicyRPaper/blob/main/baseSim.R:
+  window <- owin(xrange = c(0, 1000), yrange = c(0, 1000))
+  g1 <- rpois(nPatients / 2, sigma)
+  g2 <- rpois(nPatients / 2, sigma + delta)
+  adjustSigma <- c(g1, g2) + 1
+
+  x <- y <- cellType <- imageID <- NULL
+  for (p in 1:nPatients){
+    for (j in 1:nIm){
+      sCount1 <- sample(counts, 1)
+      sCount2 <- sample(counts, 1)
+      a <- rpoispp(sCount1/1000^2, win = window)
+      aDens <- density(a, sigma = adjustSigma[p], kernel = "disc")
+      aDens$v <- pmax(aDens$v, 0) * sCount2 / sCount1
+      b <- rpoispp(aDens)
+
+      x <- c(x, a$x, b$x)
+      y <- c(y, a$y, b$y)
+      cellType <- c(cellType, rep("A", a$n), rep("B", b$n))
+      imageID  <- c(imageID, rep(paste(p, j, sep = "_"), a$n + b$n))
+    }
+  }
+  imageID <- factor(imageID)
+
+  cellExp <- data.frame(x = x, y = y, cellType = factor(cellType), imageID = imageID)
+  phenoData <- data.frame(
+    imageID  = unique(imageID),
+    condition = ifelse(as.numeric(sapply(unique(imageID), function(x) str_split(x, "_")[[1]][1]))
+                       <= nPatients/2, "Group1", "Group2"),
+    subject   = as.numeric(sapply(unique(imageID), function(x) str_split(x, "_")[[1]][1]))
+  )
+
+  table <- cellExp
+  names(table) <- c("Xcoord", "Ycoord", "cell.type", "image")
+  table$patient.id <- sapply(table$image, function(x) str_split(x, "_")[[1]][1])
+  table$roi        <- sapply(table$image, function(x) str_split(x, "_")[[1]][2])
+  names(phenoData) <- c("image", "group", "patient.id")
+  table <- merge(table, phenoData, by = c("image", "patient.id"), all = TRUE)
+  colnames(table) <- c("image_number", "patient_id", "cell_x", "cell_y", "cell_type", "roi", "group")
+
+  ##Calculate spatial summary functions
+  sumfun_data <- preprocess_data(
+    table,
+    from_cell = "A",
+    to_cell = "B",
+    qc_cellcount_cutoff = 0,
+    perm_yn = FALSE, #no holes in simulated data
+    r_max = 200,
+    inc = 1,
+    image_dims = c(0, 1000, 0, 1000),
+    summary_function = "L"
+  )
+  sumfun_data$group <- ifelse(sumfun_data$group == "Group1", 1, 0)
+  sumfun_data$patient_id <- factor(sumfun_data$patient_id)
+
+  ##Calculate confidence band
+  CBs <- wildBS_CB(formula=outcome ~ group,
+                   data=sumfun_data,
+                   target = c("group"),
+                   form   = c("coef"),
+                   func = function(group){group},
+                   B1=B1,
+                   B2=B2,
+                   alpha=alpha,
+                   nthreads = nthreads,
+                   id='patient_id')
+  excludes0 <- any(CBs$CB_lower > 0 | CBs$CB_upper < 0)
+  list(
+    excludes0 = excludes0,
+    target_curve_estimates = CBs$target_curve_estimates,
+    CB_lower = CBs$CB_lower,
+    CB_upper = CBs$CB_upper
+  )
+}
+
+sim_with_save <- function(iter,
+                          nPatients,
+                          nIm,
+                          counts,
+                          sigma,
+                          delta,
+                          alpha,
+                          B1,
+                          B2,
+                          nthreads,
+                          seed,
+                          progress_file,
+                          nSim){
+  res <- sim(iter, nPatients, nIm, counts, sigma, delta, alpha, B1, B2, nthreads, seed)
+
+  #append progress
+  attempt <- 1
+  repeat {
+    ok <- try({
+      if (file.exists(progress_file)) {
+        load(progress_file)
+        if (length(excludes0_vec) != nSim) {
+          excludes0_vec <- rep(NA, nSim)
+        }
+      } else {
+        excludes0_vec <- rep(NA, nSim)
+      }
+      excludes0_vec[iter] <- res$excludes0
+      save(excludes0_vec, file = progress_file)
+      TRUE
+    }, silent = TRUE)
+    if (isTRUE(ok)) break
+    if (attempt > 10) {
+      warning("Failed to update progress after 10 attempts.")
+      break
+    }
+    attempt <- attempt + 1
+    Sys.sleep(runif(1, 0.05, 0.2))
+  }
+
+  res
+}
+
+#------------ Simulate--------------------------------------------------------------------------------------------
+set.seed(seed)
+iters <- as.list(1:nSim)
+if (file.exists(progress_file)) file.remove(progress_file)
+cl <- makeCluster(nCores, type = "PSOCK")
+clusterEvalQ(cl, { #load the necessary packages on the parallel workers
+  library(spatstat.geom)
+  library(spatstat.random)
+  library(spatstat.explore)
+  library(stringr)
+  library(refund)
+  library(mgcv)
+})
+clusterExport(cl, #export the necessary variables and functions to the parallel workers
+              varlist = c(
+                #Variables
+                "nPatients", "nIm", "counts", "sigma", "delta",
+                "alpha", "B1", "B2", "nthreads", "seed",
+                "nSim", "progress_file",
+
+                #Functions
+                "format_spatial_variable", "preprocess_data",
+                "extract_target_curve", "get_fixed_and_re",
+                "wildBS_CB",
+                "sim", "sim_with_save"
+              ),
+              envir = environment()
+)
+
+res_list <- parLapplyLB(cl, iters, sim_with_save,
+                        nPatients = nPatients, nIm=nIm, counts = counts, sigma = sigma, delta=delta,
+                        alpha = alpha, B1 = B1, B2 = B2,
+                        nthreads = nthreads, seed=seed,
+                        progress_file = progress_file, nSim = nSim)
+
+target_curve <- do.call(rbind, lapply(res_list, `[[`, "target_curve_estimates"))
+CB_lower     <- do.call(rbind, lapply(res_list, `[[`, "CB_lower"))
+CB_upper     <- do.call(rbind, lapply(res_list, `[[`, "CB_upper"))
+excludes0    <- sapply(res_list, `[[`, "excludes0") #does the CB exclude 0?
+grid <- 0:200
+
+save(target_curve, CB_lower, CB_upper, excludes0, grid, file = "sim_results.RData")

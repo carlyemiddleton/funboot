@@ -1,6 +1,6 @@
 #' Hoch-Schulz Melanoma Data Subset
 #'
-#' DESCRIPTION
+#' 7 variables taken from the 2022 \href{https://bodenmillergroup.github.io/imcdatasets/}{Hoch-Schulz melanoma data subset}, and re-named to follow the input format for *funboot.*  Each row of the data corresponds to one cell.
 #'
 #' @format A data frame with 307931 rows and 7 variables:
 #' \describe{

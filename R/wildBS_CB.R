@@ -14,7 +14,7 @@
 #' @param id Name of the patient ID variable. e.g., `"patient_id"`.
 #' @param nthreads Number of parallel threads to use in the call to `refund::pffr()`
 #'
-#' @return A list containing, for each evaluation radius: the lower and upper bounds of the confidence band, estimated values of the target curve, and the standard deviation of outer bootstrap target curve estimates.  Also returns the grid of evaluation radii, the critical value, and the bootstrap distribution of the statistic `M`.
+#' @return A list containing, for each evaluation radius: the lower and upper bounds of the confidence band, estimated values of the target curve, and the standard deviation of outer bootstrap target curve estimates.  Also returns the grid of evaluation radii, the critical value, and the bootstrap distribution of the statistic `T`.
 #'
 #' @seealso [refund::pffr()], [mgcv::gam()]
 #' @export
@@ -126,7 +126,7 @@ wildBS_CB <- function(formula,
     c_patient <- matrix(0, nrow = n_Im_total, ncol = B1)
   }
   #Storage
-  M <- numeric(B1)
+  T <- numeric(B1)
   target_curve_outer <- matrix(NA, nrow = B1, ncol = length(grid))
 
   #Do the outer layer bootstrap
@@ -180,7 +180,7 @@ wildBS_CB <- function(formula,
         c_patient_bs <- matrix(0, nrow = n_Im_total, ncol = B2)
       }
 
-      M_inner <- matrix(NA, nrow = B2, ncol = length(grid))
+      T_inner <- matrix(NA, nrow = B2, ncol = length(grid))
       for (b2 in 1:B2) {
         #Resample data
         Y_mat_bs_bs <- fixed_bs + c_patient_bs[, b2] * b0_bs + c_img_bs[, b2] * epsilon_bs
@@ -202,11 +202,11 @@ wildBS_CB <- function(formula,
                                                     form=form,
                                                     covar_list = covar_list,
                                                     func=func)
-        M_inner[b2,] <- target_curve_bs_bs
+        T_inner[b2,] <- target_curve_bs_bs
       }
-      SEs_inner <- apply(M_inner, 2, stats::sd)
+      SEs_inner <- apply(T_inner, 2, stats::sd)
       SEs_inner <- pmax(SEs_inner, 1e-8) #avoid potential division by 0
-      M[b1] <- max(abs((target_curve_bs-target_curve)/SEs_inner))
+      T[b1] <- max(abs((target_curve_bs-target_curve)/SEs_inner))
       target_curve_outer[b1,] <- target_curve_bs
     }
 
@@ -214,13 +214,13 @@ wildBS_CB <- function(formula,
   ## Get confidence band ##
   #########################
 
-  q <- stats::quantile(M, 1-alpha)
+  q <- stats::quantile(T, 1-alpha)
 
   target_curve_SEs <- apply(target_curve_outer, 2, stats::sd)
   MoE <- q * target_curve_SEs
   CB_lower <- target_curve - MoE
   CB_upper <- target_curve + MoE
-  CBs <- list(CB_lower, CB_upper, grid, target_curve, target_curve_SEs, q, M)
-  names(CBs) <- c('CB_lower','CB_upper', 'grid', 'target_curve_estimates', 'target_curve_SEs', 'q', 'M')
+  CBs <- list(CB_lower, CB_upper, grid, target_curve, target_curve_SEs, q, T)
+  names(CBs) <- c('CB_lower','CB_upper', 'grid', 'target_curve_estimates', 'target_curve_SEs', 'q', 'T')
   return(CBs)
 }
