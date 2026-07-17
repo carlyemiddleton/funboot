@@ -1,6 +1,7 @@
 # funboot
 
 [![DOI](https://zenodo.org/badge/1154788071.svg)](https://doi.org/10.5281/zenodo.21403975)
+[![R-CMD-check](https://github.com/carlyemiddleton/funboot/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/carlyemiddleton/funboot/actions/workflows/R-CMD-check.yaml)
 
 <img src="man/figures/logo.png" align="right" height="139" alt="" /> 
 
