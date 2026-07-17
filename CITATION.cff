@@ -21,6 +21,8 @@ contact:
 - family-names: Middleton
   given-names: Carly
   email: carly.middleton@gmail.com
+doi: "10.5281/zenodo.21403976"
+date-released: "2026-07-16"
 references:
 - type: software
   title: mgcv
