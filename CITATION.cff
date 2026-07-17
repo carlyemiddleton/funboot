@@ -1,0 +1,246 @@
+# ------------------------------------------------
+# CITATION.cff file created with {cffr} R package
+# See also: https://docs.ropensci.org/cffr/
+# ------------------------------------------------
+ 
+cff-version: 1.2.0
+message: 'To cite package "funboot" in publications use:'
+type: software
+license: MIT
+title: 'funboot: Pairwise cell type colocalization analysis for multiplex imaging
+  data via functional regression and wild bootstrap'
+version: 0.1.0
+abstract: 'Package implementing the proposed method from the manuscript "funboot:
+  Pairwise cell type colocalization analysis for multiplex imaging data via functional
+  regression and wild bootstrap."'
+authors:
+- family-names: Middleton
+  given-names: Carly
+  email: carly.middleton@gmail.com
+contact:
+- family-names: Middleton
+  given-names: Carly
+  email: carly.middleton@gmail.com
+references:
+- type: software
+  title: mgcv
+  abstract: 'mgcv: Mixed GAM Computation Vehicle with Automatic Smoothness Estimation'
+  notes: Imports
+  repository: https://CRAN.R-project.org/package=mgcv
+  authors:
+  - family-names: Wood
+    given-names: Simon
+    email: simon.wood@r-project.org
+  year: '2026'
+  doi: 10.32614/CRAN.package.mgcv
+- type: software
+  title: refund
+  abstract: 'refund: Regression with Functional Data'
+  notes: Imports
+  url: https://github.com/refunders/refund
+  repository: https://CRAN.R-project.org/package=refund
+  authors:
+  - family-names: Goldsmith
+    given-names: Jeff
+    email: jeff.goldsmith@columbia.edu
+  - family-names: Scheipl
+    given-names: Fabian
+    email: fabian.scheipl@stat.uni-muenchen.de
+  - family-names: Huang
+    given-names: Lei
+    email: huangracer@gmail.com
+  - family-names: Wrobel
+    given-names: Julia
+    email: julia.wrobel@emory.edu
+  - family-names: Di
+    given-names: Chongzhi
+    email: cdi@fredhutch.org
+  - family-names: Gellar
+    given-names: Jonathan
+    email: jgellar1@jhu.edu
+  - family-names: Harezlak
+    given-names: Jaroslaw
+  - family-names: McLean
+    given-names: Mathew W.
+    email: mathew.w.mclean@gmail.com
+  - family-names: Swihart
+    given-names: Bruce
+    email: bswihart@jhsph.edu
+  - family-names: Xiao
+    given-names: Luo
+    email: lxiao@jhsph.edu
+  - family-names: Crainiceanu
+    given-names: Ciprian
+    email: ccrainic@jhsph.edu
+  - family-names: Reiss
+    given-names: Philip T.
+    email: phil.reiss@nyumc.org
+  - family-names: Cui
+    given-names: Erjia
+    email: ecui@umn.edu
+  year: '2026'
+  doi: 10.32614/CRAN.package.refund
+- type: software
+  title: spatstat.geom
+  abstract: 'spatstat.geom: Geometrical Functionality of the ''spatstat'' Family'
+  notes: Imports
+  url: http://spatstat.org/
+  repository: https://CRAN.R-project.org/package=spatstat.geom
+  authors:
+  - family-names: Baddeley
+    given-names: Adrian
+    email: Adrian.Baddeley@curtin.edu.au
+    orcid: https://orcid.org/0000-0001-9499-8382
+  - family-names: Turner
+    given-names: Rolf
+    email: rolfturner@posteo.net
+    orcid: https://orcid.org/0000-0001-5521-5218
+  - family-names: Rubak
+    given-names: Ege
+    email: rubak@math.aau.dk
+    orcid: https://orcid.org/0000-0002-6675-533X
+  year: '2026'
+  doi: 10.32614/CRAN.package.spatstat.geom
+- type: software
+  title: spatstat.explore
+  abstract: 'spatstat.explore: Exploratory Data Analysis for the ''spatstat'' Family'
+  notes: Imports
+  url: http://spatstat.org/
+  repository: https://CRAN.R-project.org/package=spatstat.explore
+  authors:
+  - family-names: Baddeley
+    given-names: Adrian
+    email: Adrian.Baddeley@curtin.edu.au
+    orcid: https://orcid.org/0000-0001-9499-8382
+  - family-names: Turner
+    given-names: Rolf
+    email: rolfturner@posteo.net
+    orcid: https://orcid.org/0000-0001-5521-5218
+  - family-names: Rubak
+    given-names: Ege
+    email: rubak@math.aau.dk
+    orcid: https://orcid.org/0000-0002-6675-533X
+  year: '2026'
+  doi: 10.32614/CRAN.package.spatstat.explore
+- type: software
+  title: ggplot2
+  abstract: 'ggplot2: Create Elegant Data Visualisations Using the Grammar of Graphics'
+  notes: Imports
+  url: https://ggplot2.tidyverse.org
+  repository: https://CRAN.R-project.org/package=ggplot2
+  authors:
+  - family-names: Wickham
+    given-names: Hadley
+    email: hadley@posit.co
+    orcid: https://orcid.org/0000-0003-4757-117X
+  - family-names: Chang
+    given-names: Winston
+    orcid: https://orcid.org/0000-0002-1576-2126
+  - family-names: Henry
+    given-names: Lionel
+  - family-names: Pedersen
+    given-names: Thomas Lin
+    email: thomas.pedersen@posit.co
+    orcid: https://orcid.org/0000-0002-5147-4711
+  - family-names: Takahashi
+    given-names: Kohske
+  - family-names: Wilke
+    given-names: Claus
+    orcid: https://orcid.org/0000-0002-7470-9261
+  - family-names: Woo
+    given-names: Kara
+    orcid: https://orcid.org/0000-0002-5125-4188
+  - family-names: Yutani
+    given-names: Hiroaki
+    orcid: https://orcid.org/0000-0002-3385-7233
+  - family-names: Dunnington
+    given-names: Dewey
+    orcid: https://orcid.org/0000-0002-9415-4582
+  - family-names: Brand
+    given-names: Teun
+    name-particle: van den
+    orcid: https://orcid.org/0000-0002-9335-7468
+  year: '2026'
+  doi: 10.32614/CRAN.package.ggplot2
+- type: software
+  title: 'R: A Language and Environment for Statistical Computing'
+  notes: Depends
+  url: https://www.R-project.org/
+  authors:
+  - name: R Core Team
+  institution:
+    name: R Foundation for Statistical Computing
+    address: Vienna, Austria
+  year: '2026'
+  version: '>= 3.5'
+- type: software
+  title: knitr
+  abstract: 'knitr: A General-Purpose Package for Dynamic Report Generation in R'
+  notes: Suggests
+  url: https://yihui.org/knitr/
+  repository: https://CRAN.R-project.org/package=knitr
+  authors:
+  - family-names: Xie
+    given-names: Yihui
+    email: xie@yihui.name
+    orcid: https://orcid.org/0000-0003-0645-5666
+  year: '2026'
+  doi: 10.32614/CRAN.package.knitr
+- type: software
+  title: rmarkdown
+  abstract: 'rmarkdown: Dynamic Documents for R'
+  notes: Suggests
+  url: https://pkgs.rstudio.com/rmarkdown/
+  repository: https://CRAN.R-project.org/package=rmarkdown
+  authors:
+  - family-names: Allaire
+    given-names: JJ
+    email: jj@posit.co
+  - family-names: Xie
+    given-names: Yihui
+    email: xie@yihui.name
+    orcid: https://orcid.org/0000-0003-0645-5666
+  - family-names: Dervieux
+    given-names: Christophe
+    email: cderv@posit.co
+    orcid: https://orcid.org/0000-0003-4474-2498
+  - family-names: McPherson
+    given-names: Jonathan
+    email: jonathan@posit.co
+  - family-names: Luraschi
+    given-names: Javier
+  - family-names: Ushey
+    given-names: Kevin
+    email: kevin@posit.co
+  - family-names: Atkins
+    given-names: Aron
+    email: aron@posit.co
+  - family-names: Wickham
+    given-names: Hadley
+    email: hadley@posit.co
+  - family-names: Cheng
+    given-names: Joe
+    email: joe@posit.co
+  - family-names: Chang
+    given-names: Winston
+    email: winston@posit.co
+  - family-names: Iannone
+    given-names: Richard
+    email: rich@posit.co
+    orcid: https://orcid.org/0000-0003-3925-190X
+  year: '2026'
+  doi: 10.32614/CRAN.package.rmarkdown
+- type: software
+  title: patchwork
+  abstract: 'patchwork: The Composer of Plots'
+  notes: Suggests
+  url: https://patchwork.data-imaginist.com
+  repository: https://CRAN.R-project.org/package=patchwork
+  authors:
+  - family-names: Pedersen
+    given-names: Thomas Lin
+    email: thomasp85@gmail.com
+    orcid: https://orcid.org/0000-0002-5147-4711
+  year: '2026'
+  doi: 10.32614/CRAN.package.patchwork
+
